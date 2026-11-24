@@ -21,6 +21,7 @@ export type TemplateMeta = {
 export const CLASSIC_TEMPLATE_ID = 'classic'
 export const AURELIA_TEMPLATE_ID = 'aurelia'
 export const VOYAGE_TEMPLATE_ID = 'voyage'
+export const VINEYARD_TEMPLATE_ID = 'vineyard'
 
 export const classicMeta: TemplateMeta = {
   id: CLASSIC_TEMPLATE_ID,
@@ -44,8 +45,20 @@ export const voyageMeta: TemplateMeta = {
   swatches: ['#f7f3ea', '#b89455', '#11110f'],
 }
 
+export const vineyardMeta: TemplateMeta = {
+  id: VINEYARD_TEMPLATE_ID,
+  name: 'Vineyard',
+  description: 'Calm and airy — calligraphy names, a wide landscape banner, soft sage accents.',
+  swatches: ['#f8f7f3', '#6b7b4a', '#5a5550'],
+}
+
 /** All template metadata, in display order. */
-export const TEMPLATE_CATALOG: readonly TemplateMeta[] = [classicMeta, aureliaMeta, voyageMeta]
+export const TEMPLATE_CATALOG: readonly TemplateMeta[] = [
+  classicMeta,
+  aureliaMeta,
+  voyageMeta,
+  vineyardMeta,
+]
 
 /** The template used when a website has no `templateId` (or an unknown one). */
 export const DEFAULT_TEMPLATE_ID = CLASSIC_TEMPLATE_ID
