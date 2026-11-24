@@ -109,7 +109,9 @@ export const travelSectionContentSchema = z.object({
     .array(
       z.object({
         title: z.string().max(120, 'Title must be 120 characters or fewer'),
-        description: z.string().max(300, 'Description must be 300 characters or fewer'),
+        description: z.string().max(600, 'Description must be 600 characters or fewer'),
+        label: z.string().max(60, 'Label must be 60 characters or fewer').optional(),
+        icon: z.enum(['plane', 'car', 'train', 'bus', 'hotel']).optional(),
       })
     )
     .max(8, 'You can add up to 8 services')

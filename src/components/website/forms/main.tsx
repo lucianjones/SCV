@@ -30,6 +30,8 @@ type MainRsvpFormProps = {
   basePath: string
   /** Place progress below the surrounding site's persistent navigation. */
   embedded?: boolean
+  /** Template-specific styling for the first step (Vineyard's boxed name search). */
+  variant?: 'vineyard'
 }
 
 const getMutationErrorMessage = (error: unknown, fallback: string): string => {
@@ -61,6 +63,7 @@ export default function MainRsvpForm({
   weddingData,
   basePath,
   embedded = false,
+  variant,
 }: MainRsvpFormProps) {
   const rsvpFormData = useRsvpForm()
   const numSteps = useRef(NUM_STATIC_STEPS)
@@ -150,16 +153,21 @@ export default function MainRsvpForm({
   return (
     // pt-24 reserves space for the fixed ProgressBar so the first step's copy
     // isn't hidden beneath it.
-    <div className={`${embedded ? 'pt-6' : 'pt-24'} pb-20 font-serif`}>
-      <ProgressBar
-        currentStep={currentStep}
-        progress={progress}
-        numSteps={numSteps.current}
-        basePath={basePath}
-        embedded={embedded}
-      />
+    <div
+      className={`${variant === 'vineyard' ? `${currentStep === 1 ? 'pt-16' : 'pt-6'} font-[family-name:var(--tpl-body-font)]` : `${embedded ? 'pt-6' : 'pt-24'} font-serif`} pb-20`}
+    >
+      {/* Vineyard shows just the boxed name search on step 1, with no progress header. */}
+      {variant === 'vineyard' && currentStep === 1 ? null : (
+        <ProgressBar
+          currentStep={currentStep}
+          progress={progress}
+          numSteps={numSteps.current}
+          basePath={basePath}
+          embedded={embedded}
+        />
+      )}
       <form
-        className='m-auto w-full max-w-[450px] px-4 py-5 md:px-0'
+        className={`m-auto w-full px-4 py-5 md:px-0 ${variant === 'vineyard' && currentStep === 1 ? 'max-w-[640px]' : 'max-w-[450px]'}`}
         onSubmit={(e) => {
           e.preventDefault()
           setSubmitError(null)
@@ -210,7 +218,7 @@ export default function MainRsvpForm({
         <AsyncState error={submitError} className='mb-4 text-center' />
         {isSubmitRateLimited && <SubmitBusyMessage />}
         <MultistepRsvpForm currentStep={currentStep} setCurrentStep={setCurrentStep}>
-          <FindYourInvitationForm />
+          <FindYourInvitationForm variant={variant} />
           <ConfirmNameForm />
           {...generateDynamicStepForms()}
           <SendRsvp isFetching={submitRsvpForm.isPending} />

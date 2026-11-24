@@ -5,7 +5,7 @@ import type { DestinationSectionContent } from '~/server/domains/website-section
 import { ClassicCoupleGallery } from '~/templates/classic/components/media'
 import { ClassicSections } from '~/templates/classic/components/sections'
 import type { TemplateSurfaceProps } from '~/templates/types'
-import { VineyardNavbar } from '~/templates/vineyard/components/navbar'
+import { VineyardNavbar, vineyardShortNames } from '~/templates/vineyard/components/navbar'
 
 const script = 'font-[family-name:var(--tpl-script-font)]'
 
@@ -38,9 +38,9 @@ export function VineyardHome({ weddingData, path, introText }: Readonly<Template
   const destination = weddingData.sections.find((section) => section.type === 'DESTINATION')
   const location = splitLocation((destination?.content as DestinationSectionContent)?.location)
   const { monthDay, year } = splitDate(weddingData.date?.numberFormat)
-  const shortNames = [weddingData.brideFirstName, weddingData.groomFirstName]
-    .filter(Boolean)
-    .join(' & ')
+  const shortNames = vineyardShortNames(weddingData)
+  // Travel has its own page, so it isn't repeated on the home page.
+  const homeSections = weddingData.sections.filter((section) => section.type !== 'TRAVEL')
 
   return (
     <main className='flex flex-col items-center pb-24 text-center'>
@@ -132,7 +132,7 @@ export function VineyardHome({ weddingData, path, introText }: Readonly<Template
       ))}
 
       <div className='flex flex-col items-center gap-20 tracking-widest'>
-        <ClassicSections sections={weddingData.sections} />
+        <ClassicSections sections={homeSections} />
       </div>
     </main>
   )

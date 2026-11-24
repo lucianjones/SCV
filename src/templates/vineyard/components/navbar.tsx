@@ -1,12 +1,17 @@
 import Link from 'next/link'
+import type { WeddingPageData } from '~/server/domains/website/website.types'
 import { SECTION_CATALOG } from '~/server/domains/website-section/website-section.catalog'
 import type { WebsiteSection } from '~/server/domains/website-section/website-section.types'
+
+/** Which nav item is highlighted. Section anchors on the home page use their anchor id. */
+export type VineyardLocation = 'home' | 'travel' | 'rsvp'
 
 type VineyardNavbarProps = {
   coupleShortNames: string
   path: string
   sections: WebsiteSection[]
   isRsvpEnabled: boolean
+  current?: VineyardLocation
 }
 
 /** Anchor ids rendered by the shared section layout, keyed by section type. */
@@ -16,22 +21,35 @@ const SECTION_ANCHORS: Record<string, string> = {
   DESTINATION: 'destination',
   EXPERIENCES: 'experiences',
   WEDDING_PARTY: 'wedding-party',
-  TRAVEL: 'travel',
   FAQ: 'faq',
   REGISTRY: 'registry',
 }
 
+export function vineyardShortNames(weddingData: WeddingPageData): string {
+  return [weddingData.brideFirstName, weddingData.groomFirstName].filter(Boolean).join(' & ')
+}
+
 function getLinks(sections: WebsiteSection[], path: string, isRsvpEnabled: boolean) {
   const seen = new Set<string>()
-  const links = [{ title: 'Home', href: path }]
+  const links: Array<{ key: string; title: string; href: string }> = [
+    { key: 'home', title: 'Home', href: path },
+  ]
   for (const section of sections) {
+    if (section.type === 'TRAVEL') {
+      // Travel has its own page.
+      if (!seen.has('travel')) {
+        seen.add('travel')
+        links.push({ key: 'travel', title: 'Travel', href: `${path}/travel` })
+      }
+      continue
+    }
     const anchor = SECTION_ANCHORS[section.type]
     if (!anchor || seen.has(anchor)) continue
     seen.add(anchor)
     const label = SECTION_CATALOG.find((entry) => entry.type === section.type)?.label ?? anchor
-    links.push({ title: label, href: `${path}#${anchor}` })
+    links.push({ key: anchor, title: label, href: `${path}#${anchor}` })
   }
-  if (isRsvpEnabled) links.push({ title: 'RSVP', href: `${path}/rsvp` })
+  if (isRsvpEnabled) links.push({ key: 'rsvp', title: 'RSVP', href: `${path}/rsvp` })
   return links
 }
 
@@ -40,6 +58,7 @@ export function VineyardNavbar({
   path,
   sections,
   isRsvpEnabled,
+  current = 'home',
 }: Readonly<VineyardNavbarProps>) {
   const links = getLinks(sections, path, isRsvpEnabled)
   return (
@@ -52,14 +71,18 @@ export function VineyardNavbar({
       </Link>
       <nav aria-label='Wedding website'>
         <ul className='flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm'>
-          {links.map((link, index) => (
+          {links.map((link) => (
             <li
-              key={link.href}
+              key={link.key}
               className={
-                index === 0 ? 'border-foreground/70 border-b-2 pb-0.5' : 'pb-0.5 hover:underline'
+                link.key === current
+                  ? 'border-foreground/70 border-b-2 pb-0.5'
+                  : 'pb-0.5 hover:underline'
               }
             >
-              <Link href={link.href}>{link.title}</Link>
+              <Link href={link.href} aria-current={link.key === current ? 'page' : undefined}>
+                {link.title}
+              </Link>
             </li>
           ))}
         </ul>

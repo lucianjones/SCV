@@ -700,8 +700,15 @@ function TravelFields({
   const services = content.services ?? []
   const stays = content.stays ?? []
 
-  const updateService = (index: number, key: 'title' | 'description', value: string) => {
-    onChange({ ...content, services: updateAt(services, index, key, value) })
+  const updateService = (
+    index: number,
+    key: 'title' | 'description' | 'label' | 'icon',
+    value: string | undefined
+  ) => {
+    onChange({
+      ...content,
+      services: updateAt(services, index, key, value as never),
+    })
   }
 
   const updateStay = (
@@ -735,26 +742,48 @@ function TravelFields({
           <div
             // biome-ignore lint/suspicious/noArrayIndexKey: positional editable rows; field values are controlled by state
             key={index}
-            className='flex items-center gap-2'
+            className='space-y-2 rounded-[8px] border border-border/70 p-3'
           >
-            <Input
-              value={service.title}
-              maxLength={120}
-              placeholder='Private Transfers'
-              className='max-w-[12rem]'
-              onChange={(event) => updateService(index, 'title', event.target.value)}
-            />
-            <Input
+            <div className='flex items-center gap-2'>
+              <select
+                aria-label='Icon'
+                value={service.icon ?? ''}
+                onChange={(event) => updateService(index, 'icon', event.target.value || undefined)}
+                className='h-9 rounded-md border border-input bg-background px-2 text-sm'
+              >
+                <option value=''>No icon</option>
+                <option value='plane'>Plane</option>
+                <option value='car'>Car</option>
+                <option value='train'>Train</option>
+                <option value='bus'>Bus</option>
+                <option value='hotel'>Hotel</option>
+              </select>
+              <Input
+                value={service.label ?? ''}
+                maxLength={60}
+                placeholder='Label (e.g. Flight)'
+                className='max-w-[12rem]'
+                onChange={(event) => updateService(index, 'label', event.target.value)}
+              />
+              <Input
+                value={service.title}
+                maxLength={120}
+                placeholder='Frankfurt Airport (FRA)'
+                onChange={(event) => updateService(index, 'title', event.target.value)}
+              />
+              <RemoveRowButton
+                label='Remove service'
+                onClick={() =>
+                  onChange({ ...content, services: services.filter((_, i) => i !== index) })
+                }
+              />
+            </div>
+            <Textarea
               value={service.description}
-              maxLength={300}
+              maxLength={600}
+              rows={3}
               placeholder='Airport transfers throughout the weekend.'
               onChange={(event) => updateService(index, 'description', event.target.value)}
-            />
-            <RemoveRowButton
-              label='Remove service'
-              onClick={() =>
-                onChange({ ...content, services: services.filter((_, i) => i !== index) })
-              }
             />
           </div>
         ))}

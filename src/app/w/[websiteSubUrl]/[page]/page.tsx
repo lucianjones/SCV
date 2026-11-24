@@ -6,6 +6,7 @@ import { grantWebsiteAccess } from '~/app/w/[websiteSubUrl]/_lib/website-access'
 import PasswordPage from '~/components/website/password-page'
 import { PersonalizedWelcome } from '~/components/website/personalized-welcome'
 import { resolveTemplate, TemplateThemeProvider } from '~/templates'
+import { VineyardTravelPage } from '~/templates/vineyard/components/travel-page'
 import { VoyageContentPage } from '~/templates/voyage/components/content-page'
 import { coupleIdentity, isVoyagePage, voyagePages } from '~/templates/voyage/site'
 
@@ -15,6 +16,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { websiteSubUrl, page } = await params
   if (!isVoyagePage(page)) return { title: 'Wedding Website' }
   const { loadResult } = await loadVisitorWedding(websiteSubUrl)
+  if (
+    loadResult.status === 'ready' &&
+    loadResult.weddingData.website.templateId === 'vineyard' &&
+    page === 'travel'
+  ) {
+    return {
+      title: 'Travel',
+      icons: [{ rel: 'icon', url: `/w/${websiteSubUrl}/icon`, type: 'image/png', sizes: '32x32' }],
+    }
+  }
   // Never put wedding data into metadata before the guest has cleared the gate.
   if (
     loadResult.status !== 'ready' ||
@@ -44,6 +55,17 @@ export default async function VoyagePageRoute({ params }: Props) {
   }
   const { weddingData } = loadResult
   const template = resolveTemplate(weddingData.website.templateId)
+  if (template.id === 'vineyard' && page === 'travel' && weddingData.websiteBuilderEnabled) {
+    const hasTravel = weddingData.sections.some((section) => section.type === 'TRAVEL')
+    if (!hasTravel) return notFound()
+    const invited = await resolveInvitedHousehold(websiteSubUrl, inviteToken)
+    return (
+      <TemplateThemeProvider template={template}>
+        {invited ? <PersonalizedWelcome invitedHousehold={invited} /> : null}
+        <VineyardTravelPage weddingData={weddingData} path={`/w/${websiteSubUrl}`} />
+      </TemplateThemeProvider>
+    )
+  }
   if (template.id !== 'voyage' || !weddingData.websiteBuilderEnabled) return notFound()
   const invitedHousehold = await resolveInvitedHousehold(websiteSubUrl, inviteToken)
   return (

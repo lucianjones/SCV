@@ -9,6 +9,7 @@ import MainRsvpForm from '~/components/website/forms/main'
 import PasswordPage from '~/components/website/password-page'
 import RsvpNotAcceptingMessage from '~/components/website/rsvp-not-accepting-message'
 import { resolveTemplate, TemplateThemeProvider } from '~/templates'
+import { VineyardSiteShell } from '~/templates/vineyard/components/site-shell'
 import { VoyageSiteShell } from '~/templates/voyage/components/site-shell'
 
 type RsvpPageProps = {
@@ -72,12 +73,17 @@ export default async function RsvpPage({ params }: RsvpPageProps) {
   // skip the name search and drop them straight onto the confirm step.
   const recognizedHousehold = await resolveRecognizedRsvpHousehold(websiteSubUrl, inviteToken)
 
+  const isVineyard = template.id === 'vineyard' && loadResult.weddingData.websiteBuilderEnabled
+
   const form = (
     <RsvpFormProvider recognizedHousehold={recognizedHousehold}>
       <MainRsvpForm
         weddingData={loadResult.weddingData}
         basePath={`/w/${websiteSubUrl}`}
-        embedded={template.id === 'voyage' && loadResult.weddingData.websiteBuilderEnabled}
+        embedded={
+          (template.id === 'voyage' && loadResult.weddingData.websiteBuilderEnabled) || isVineyard
+        }
+        variant={isVineyard ? 'vineyard' : undefined}
       />
     </RsvpFormProvider>
   )
@@ -92,6 +98,14 @@ export default async function RsvpPage({ params }: RsvpPageProps) {
         >
           {form}
         </VoyageSiteShell>
+      ) : isVineyard ? (
+        <VineyardSiteShell
+          weddingData={loadResult.weddingData}
+          path={`/w/${websiteSubUrl}`}
+          current='rsvp'
+        >
+          {form}
+        </VineyardSiteShell>
       ) : (
         form
       )}

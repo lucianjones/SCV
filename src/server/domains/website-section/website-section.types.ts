@@ -110,9 +110,17 @@ export type WeddingPartySectionContent = {
   members: WeddingPartyMember[]
 }
 
+/** Thin-line icons a travel service can show (Vineyard travel page). */
+export const TRAVEL_SERVICE_ICONS = ['plane', 'car', 'train', 'bus', 'hotel'] as const
+export type TravelServiceIcon = (typeof TRAVEL_SERVICE_ICONS)[number]
+
 export type TravelService = {
   title: string
   description: string
+  /** Optional small caption above the title, e.g. "Flight" or "Rental Car". */
+  label?: string
+  /** Optional icon shown above the label. */
+  icon?: TravelServiceIcon
 }
 
 export type TravelStay = {
