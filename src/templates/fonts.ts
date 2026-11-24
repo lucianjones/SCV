@@ -117,3 +117,36 @@ export const voyageScript = localFont({
   display: 'swap',
   adjustFontFallback: 'Arial',
 })
+
+/** Vineyard template — formal copperplate script for names, places and dates. */
+export const vineyardScript = localFont({
+  src: [
+    {
+      path: '../fonts/pinyon-script/pinyon-script-latin-400-normal.woff2',
+      weight: '400',
+      style: 'normal',
+    },
+  ],
+  variable: '--tpl-vineyard-script',
+  display: 'swap',
+  adjustFontFallback: 'Arial',
+})
+
+/** Vineyard template — Baskerville-style serif for body copy and navigation. */
+export const vineyardSerif = localFont({
+  src: [
+    {
+      path: '../fonts/libre-baskerville/libre-baskerville-variable-normal.woff2',
+      weight: '400 700',
+      style: 'normal',
+    },
+    {
+      path: '../fonts/libre-baskerville/libre-baskerville-variable-italic.woff2',
+      weight: '400 700',
+      style: 'italic',
+    },
+  ],
+  variable: '--tpl-vineyard-serif',
+  display: 'swap',
+  adjustFontFallback: 'Times New Roman',
+})

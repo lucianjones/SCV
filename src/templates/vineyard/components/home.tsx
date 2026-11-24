@@ -61,11 +61,11 @@ export function VineyardHome({ weddingData, path, introText }: Readonly<Template
       )}
 
       <section className='flex flex-col items-center gap-6 px-6 py-20'>
-        <h1 className={`${script} text-5xl text-foreground/80 sm:text-6xl`}>
+        <h1 className={`${script} text-5xl text-foreground sm:text-6xl`}>
           {fullName(weddingData.brideFirstName, weddingData.brideLastName)}
         </h1>
         <span className='text-base'>and</span>
-        <h1 className={`${script} text-5xl text-foreground/80 sm:text-6xl`}>
+        <h1 className={`${script} text-5xl text-foreground sm:text-6xl`}>
           {fullName(weddingData.groomFirstName, weddingData.groomLastName)}
         </h1>
       </section>
@@ -73,12 +73,12 @@ export function VineyardHome({ weddingData, path, introText }: Readonly<Template
       <section className='flex flex-col items-center gap-12 px-6 pb-20 sm:flex-row sm:gap-40'>
         {location && (
           <div className='flex flex-col items-center gap-3'>
-            <span className={`${script} text-4xl text-foreground/80`}>{location.place}</span>
+            <span className={`${script} text-4xl text-foreground`}>{location.place}</span>
             {location.region && <span className='text-base'>{location.region}</span>}
           </div>
         )}
         <div className='flex flex-col items-center gap-3'>
-          <span className={`${script} text-4xl text-foreground/80`}>{monthDay}</span>
+          <span className={`${script} text-4xl text-foreground`}>{monthDay}</span>
           {year && <span className='text-base'>{year}</span>}
         </div>
       </section>
@@ -116,7 +116,7 @@ export function VineyardHome({ weddingData, path, introText }: Readonly<Template
 
       {weddingData.events.map((event) => (
         <div key={event.id} className='mb-12 flex flex-col gap-2'>
-          <h3 className={`${script} text-4xl text-foreground/80`}>{event.name}</h3>
+          <h3 className={`${script} text-4xl text-foreground`}>{event.name}</h3>
           {!!event.date && <span className='text-lg'>{formatDateStandard(event.date)}</span>}
           {!!event.startTime && (
             <span className='text-lg'>
@@ -127,7 +127,7 @@ export function VineyardHome({ weddingData, path, introText }: Readonly<Template
         </div>
       ))}
 
-      <div className='flex flex-col items-center gap-20 text-zinc-600 tracking-widest'>
+      <div className='flex flex-col items-center gap-20 tracking-widest'>
         <ClassicSections sections={weddingData.sections} />
       </div>
     </main>
