@@ -46,12 +46,12 @@ export function VineyardNavbar({
     <header className='flex flex-col items-center gap-5 px-6 pt-3 pb-4 text-center'>
       <Link
         href={path}
-        className='font-[family-name:var(--tpl-script-font)] text-3xl text-foreground'
+        className='font-[family-name:var(--tpl-script-font)] text-[1.75rem] text-foreground'
       >
         {coupleShortNames}
       </Link>
       <nav aria-label='Wedding website'>
-        <ul className='flex flex-wrap justify-center gap-x-5 gap-y-2 text-base'>
+        <ul className='flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm'>
           {links.map((link, index) => (
             <li
               key={link.href}

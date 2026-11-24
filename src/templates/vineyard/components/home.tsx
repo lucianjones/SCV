@@ -61,32 +61,32 @@ export function VineyardHome({ weddingData, path, introText }: Readonly<Template
       )}
 
       <section className='flex flex-col items-center gap-6 px-6 py-20'>
-        <h1 className={`${script} text-5xl text-foreground sm:text-6xl`}>
+        <h1 className={`${script} text-4xl text-foreground sm:text-5xl`}>
           {fullName(weddingData.brideFirstName, weddingData.brideLastName)}
         </h1>
-        <span className='text-base'>and</span>
-        <h1 className={`${script} text-5xl text-foreground sm:text-6xl`}>
+        <span className='text-sm'>and</span>
+        <h1 className={`${script} text-4xl text-foreground sm:text-5xl`}>
           {fullName(weddingData.groomFirstName, weddingData.groomLastName)}
         </h1>
       </section>
 
-      <section className='flex flex-col items-center gap-12 px-6 pb-20 sm:flex-row sm:gap-40'>
+      <section className='flex flex-col items-center gap-12 px-6 pb-20 sm:flex-row sm:gap-32'>
         {location && (
           <div className='flex flex-col items-center gap-3'>
-            <span className={`${script} text-4xl text-foreground`}>{location.place}</span>
-            {location.region && <span className='text-base'>{location.region}</span>}
+            <span className={`${script} text-[2.125rem] text-foreground`}>{location.place}</span>
+            {location.region && <span className='text-sm'>{location.region}</span>}
           </div>
         )}
         <div className='flex flex-col items-center gap-3'>
-          <span className={`${script} text-4xl text-foreground`}>{monthDay}</span>
-          {year && <span className='text-base'>{year}</span>}
+          <span className={`${script} text-[2.125rem] text-foreground`}>{monthDay}</span>
+          {year && <span className='text-sm'>{year}</span>}
         </div>
       </section>
 
       {website.isRsvpEnabled && (
         <Link
           href={`${path}/rsvp`}
-          className='mb-16 rounded-sm bg-primary px-8 py-3 text-primary-foreground tracking-widest hover:opacity-90'
+          className='mb-16 inline-block min-w-52 rounded-[3px] bg-foreground px-10 py-2.5 font-bold text-background text-xs uppercase tracking-wider hover:opacity-90'
         >
           RSVP
         </Link>
