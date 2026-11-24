@@ -2,6 +2,10 @@ import { fireEvent, render, screen } from '@testing-library/react'
 
 import { InviteLinkPanel } from '~/components/guest-list/invite-link-panel'
 
+jest.mock('~/components/guest-list/send-save-the-dates', () => ({
+  SendSaveTheDates: () => <button type='button'>Send Save the Dates</button>,
+}))
+
 jest.mock('~/components/guest-list/self-invite-link-manager', () => ({
   SelfInviteLinkManager: () => <div data-testid='self-invite-link-manager' />,
 }))
@@ -46,5 +50,10 @@ describe('InviteLinkPanel', () => {
     expect(screen.getByTestId('self-invite-link-manager')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Invite Link' }))
     expect(screen.queryByTestId('self-invite-link-manager')).not.toBeInTheDocument()
+  })
+
+  it('shows the "Send Save the Dates" action next to the invite link button', () => {
+    render(<InviteLinkPanel />)
+    expect(screen.getByRole('button', { name: 'Send Save the Dates' })).toBeInTheDocument()
   })
 })

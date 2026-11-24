@@ -157,6 +157,14 @@ jest.mock('~/trpc/react', () => ({
           isPending: false,
         }),
       },
+      regenerateLink: {
+        useMutation: () => ({
+          mutateAsync: jest
+            .fn()
+            .mockResolvedValue({ url: 'http://localhost:3000/save-the-date/new-token' }),
+          isPending: false,
+        }),
+      },
     },
     website: {
       getByUserId: {
