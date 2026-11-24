@@ -82,7 +82,15 @@ export default async function HouseholdSaveTheDateUpdatePage({
   const code = cookieStore.get(householdInviteCookieName(websiteSubUrl))?.value
   const inviteData = await householdInviteService.getInviteData(websiteSubUrl, code)
 
-  if (!inviteData) return <InvalidHouseholdInvite websiteSubUrl={websiteSubUrl} />
+  if (!inviteData) {
+    const summary = await householdInviteService.getPublicWeddingSummary(websiteSubUrl)
+    return (
+      <InvalidHouseholdInvite
+        websiteSubUrl={websiteSubUrl}
+        variant={summary?.templateId === 'vineyard' ? 'vineyard' : undefined}
+      />
+    )
+  }
 
   const updateHouseholdDetails = async (formData: FormData) => {
     'use server'

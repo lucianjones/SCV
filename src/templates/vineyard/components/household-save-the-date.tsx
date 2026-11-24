@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { AddToCalendarButtons } from '~/components/website/add-to-calendar-buttons'
+import type { AttendanceIntent } from '~/lib/website/attendance-intent'
 import type { SaveTheDateCalendarLinks } from '~/lib/website/calendar'
+import { VineyardAttendanceQuestion } from '~/templates/vineyard/components/attendance-question'
 
 const script = 'font-[family-name:var(--tpl-script-font)]'
 const solidButton =
@@ -21,9 +23,8 @@ type Props = {
   showUpdatedNotice: boolean
   /** The casual "do you plan on attending?" question (separate from the formal RSVP). */
   attendance: {
-    current: 'yes' | 'maybe' | 'no' | null
-    status: 'saved' | 'error' | null
-    action: (formData: FormData) => Promise<void>
+    current: AttendanceIntent | null
+    action: (formData: FormData) => Promise<{ ok: boolean }>
   }
   labels: {
     saveTheDate: string
@@ -60,11 +61,6 @@ export function VineyardHouseholdSaveTheDate({
   attendance,
   labels,
 }: Readonly<Props>) {
-  const choices = [
-    { value: 'yes', label: labels.planYes },
-    { value: 'maybe', label: labels.planMaybe },
-    { value: 'no', label: labels.planNo },
-  ] as const
   return (
     <article className='flex w-full flex-col items-center gap-8 rounded-2xl bg-foreground/[0.07] px-6 py-14 text-center sm:px-14'>
       {showUpdatedNotice && (
@@ -107,30 +103,11 @@ export function VineyardHouseholdSaveTheDate({
         </ul>
       </div>
 
-      <form action={attendance.action} className='flex flex-col items-center gap-3'>
-        <span className='text-sm'>{labels.planOnAttending}</span>
-        <div className='flex gap-3'>
-          {choices.map((choice) => (
-            <button
-              key={choice.value}
-              type='submit'
-              name='intent'
-              value={choice.value}
-              aria-pressed={attendance.current === choice.value}
-              className={`min-w-24 rounded-[3px] px-6 py-2.5 text-center font-bold text-sm ${
-                attendance.current === choice.value
-                  ? 'bg-foreground text-background'
-                  : 'border border-foreground/40 text-foreground hover:bg-foreground/10'
-              }`}
-            >
-              {choice.label}
-            </button>
-          ))}
-        </div>
-        <p className='max-w-sm text-balance text-xs leading-5'>{labels.planNote}</p>
-        {attendance.status === 'saved' && <p className='text-sm'>{labels.planSaved}</p>}
-        {attendance.status === 'error' && <p className='text-sm'>{labels.planError}</p>}
-      </form>
+      <VineyardAttendanceQuestion
+        current={attendance.current}
+        action={attendance.action}
+        labels={labels}
+      />
 
       {copy?.message ? (
         <p className='max-w-md whitespace-pre-line text-balance text-sm leading-6'>

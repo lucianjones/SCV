@@ -133,6 +133,7 @@ describe('HouseholdInviteService', () => {
     const weddingDate = new Date('2027-05-30T12:00:00.000Z')
     const db = createDb()
     db.website.findFirst.mockResolvedValue({
+      templateId: 'vineyard',
       wedding: {
         groomFirstName: 'Diego',
         brideFirstName: 'Laura',
@@ -146,10 +147,12 @@ describe('HouseholdInviteService', () => {
       brideFirstName: 'Laura',
       date: weddingDate,
       venue: 'Puebla, Mexico',
+      templateId: 'vineyard',
     })
     expect(db.website.findFirst).toHaveBeenCalledWith({
       where: { subUrl: 'harry-and-hermione' },
       select: {
+        templateId: true,
         wedding: {
           select: {
             groomFirstName: true,
@@ -178,6 +181,7 @@ describe('HouseholdInviteService', () => {
       brideFirstName: 'Laura',
       date: null,
       venue: null,
+      templateId: null,
     })
   })
 

@@ -262,10 +262,13 @@ export class HouseholdInviteService {
     brideFirstName: string
     date: Date | null
     venue: string | null
+    /** The selected website template, so pages without invite data can still be themed. */
+    templateId: string | null
   } | null> {
     const website = await this.db.website.findFirst({
       where: { subUrl },
       select: {
+        templateId: true,
         wedding: {
           select: {
             groomFirstName: true,
@@ -289,6 +292,7 @@ export class HouseholdInviteService {
       brideFirstName: website.wedding.brideFirstName,
       date: weddingDayEvent?.date ?? null,
       venue: weddingDayEvent?.venue ?? null,
+      templateId: website.templateId ?? null,
     }
   }
 

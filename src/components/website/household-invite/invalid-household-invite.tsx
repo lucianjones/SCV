@@ -3,12 +3,32 @@ import { Card, CardContent } from '~/components/ui/card'
 
 type InvalidHouseholdInviteProps = {
   websiteSubUrl: string
+  /** Template-specific styling (Vineyard: soft grey card, script heading, template fonts). */
+  variant?: 'vineyard'
 }
 
 export async function InvalidHouseholdInvite({
   websiteSubUrl,
+  variant,
 }: Readonly<InvalidHouseholdInviteProps>) {
   const t = await getTranslations('invite')
+
+  if (variant === 'vineyard') {
+    return (
+      <main className='min-h-screen bg-background px-5 py-12 text-foreground sm:py-16'>
+        <div className='mx-auto flex min-h-[calc(100vh-6rem)] w-full max-w-2xl items-center'>
+          <article className='flex w-full flex-col items-center gap-6 rounded-2xl bg-foreground/[0.07] px-6 py-14 text-center sm:px-14'>
+            <p className='text-sm'>{t('saveTheDate')}</p>
+            <h1 className='font-[family-name:var(--tpl-script-font)] text-5xl text-foreground leading-tight sm:text-6xl'>
+              {t('couldNotOpen')}
+            </h1>
+            <p className='max-w-md text-balance text-sm leading-6'>{t('invalidLinkDescription')}</p>
+          </article>
+        </div>
+      </main>
+    )
+  }
+
   return (
     <main className='relative min-h-screen overflow-hidden bg-background px-5 py-12 text-foreground sm:py-16'>
       <div aria-hidden className='pointer-events-none absolute inset-0 -z-10'>

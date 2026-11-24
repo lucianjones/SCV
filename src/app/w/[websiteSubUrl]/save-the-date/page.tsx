@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
 import { getLocale, getTranslations } from 'next-intl/server'
 
 import { formatDateStandard } from '~/app/utils/helpers'
@@ -29,7 +28,6 @@ type SaveTheDatePageProps = {
   searchParams?: Promise<{
     invalid?: string
     updated?: string
-    attending?: string
   }>
 }
 
@@ -115,7 +113,15 @@ export default async function SaveTheDatePage({ params, searchParams }: SaveTheD
   const code = cookieStore.get(householdInviteCookieName(websiteSubUrl))?.value
   const inviteData = await householdInviteService.getInviteData(websiteSubUrl, code)
 
-  if (!inviteData) return <InvalidHouseholdInvite websiteSubUrl={websiteSubUrl} />
+  if (!inviteData) {
+    const summary = await householdInviteService.getPublicWeddingSummary(websiteSubUrl)
+    return (
+      <InvalidHouseholdInvite
+        websiteSubUrl={websiteSubUrl}
+        variant={summary?.templateId === 'vineyard' ? 'vineyard' : undefined}
+      />
+    )
+  }
 
   // Theme the card with the couple's selected template (colours + fonts cascade
   // via CSS variables) and reuse their editable Save the Date copy.
@@ -144,23 +150,20 @@ export default async function SaveTheDatePage({ params, searchParams }: SaveTheD
 
   // Casual "do you plan on attending?" answer: an intent signal (not an RSVP) that updates the
   // household's likelihood of attending for the couple.
-  const submitAttendanceIntent = async (formData: FormData) => {
+  const submitAttendanceIntent = async (formData: FormData): Promise<{ ok: boolean }> => {
     'use server'
 
     const intent = formData.get('intent')
-    if (!isAttendanceIntent(intent)) {
-      redirect(`/w/${websiteSubUrl}/save-the-date`)
-    }
+    if (!isAttendanceIntent(intent)) return { ok: false }
 
     const actionCookies = await cookies()
     const actionCode = actionCookies.get(householdInviteCookieName(websiteSubUrl))?.value
-    let saved = true
     try {
       await householdInviteService.updateAttendanceIntent(websiteSubUrl, actionCode, intent)
+      return { ok: true }
     } catch {
-      saved = false
+      return { ok: false }
     }
-    redirect(`/w/${websiteSubUrl}/save-the-date?attending=${saved ? 'saved' : 'error'}`)
   }
 
   if (template.id === 'vineyard') {
@@ -183,12 +186,6 @@ export default async function SaveTheDatePage({ params, searchParams }: SaveTheD
               showUpdatedNotice={resolvedSearchParams?.updated === '1'}
               attendance={{
                 current: attendanceIntentFromLikelihood(inviteData.household.likelihoodOfAttending),
-                status:
-                  resolvedSearchParams?.attending === 'saved'
-                    ? 'saved'
-                    : resolvedSearchParams?.attending === 'error'
-                      ? 'error'
-                      : null,
                 action: submitAttendanceIntent,
               }}
               labels={{
