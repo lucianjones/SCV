@@ -19,7 +19,8 @@ export function AddToCalendarButtons({
   outlookUrl,
   ics,
   fileName,
-}: Readonly<SaveTheDateCalendarLinks>) {
+  variant,
+}: Readonly<SaveTheDateCalendarLinks & { variant?: 'vineyard' }>) {
   const downloadIcs = () => {
     const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' })
     const url = URL.createObjectURL(blob)
@@ -30,6 +31,27 @@ export function AddToCalendarButtons({
     link.click()
     link.remove()
     URL.revokeObjectURL(url)
+  }
+
+  if (variant === 'vineyard') {
+    const linkClass =
+      'inline-flex items-center gap-2 rounded-[3px] border border-foreground/40 px-4 py-2 text-foreground text-sm hover:bg-foreground/10'
+    return (
+      <div className='flex flex-wrap items-center justify-center gap-3'>
+        <a href={googleUrl} target='_blank' rel='noopener noreferrer' className={linkClass}>
+          <CalendarPlus className='h-4 w-4' />
+          Google Calendar
+        </a>
+        <a href={outlookUrl} target='_blank' rel='noopener noreferrer' className={linkClass}>
+          <CalendarPlus className='h-4 w-4' />
+          Outlook
+        </a>
+        <button type='button' onClick={downloadIcs} className={linkClass}>
+          <CalendarPlus className='h-4 w-4' />
+          Apple Calendar
+        </button>
+      </div>
+    )
   }
 
   return (

@@ -1,6 +1,7 @@
 import { TRPCError } from '@trpc/server'
 import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { HouseholdDetailsForm } from '~/components/website/household-invite/household-details-form'
@@ -8,6 +9,7 @@ import { InvalidHouseholdInvite } from '~/components/website/household-invite/in
 import { householdInviteCookieName } from '~/lib/website/cookies'
 import { householdInviteService } from '~/server/application/household-invite'
 import type { UpdateHouseholdInviteInput } from '~/server/application/household-invite/household-invite.service'
+import { resolveTemplate, TemplateThemeProvider } from '~/templates'
 
 export const metadata: Metadata = {
   robots: {
@@ -105,6 +107,37 @@ export default async function HouseholdSaveTheDateUpdatePage({
       redirect(`/w/${websiteSubUrl}/save-the-date/update?error=save`)
     }
     redirect(`/w/${websiteSubUrl}/save-the-date?updated=1`)
+  }
+
+  const template = resolveTemplate(inviteData.templateId)
+  if (template.id === 'vineyard') {
+    const script = 'font-[family-name:var(--tpl-script-font)]'
+    return (
+      <TemplateThemeProvider template={template}>
+        <main className='min-h-screen bg-background px-5 py-10 text-foreground'>
+          <section className='mx-auto w-full max-w-3xl'>
+            <header className='mb-10 flex flex-col items-center gap-3 text-center'>
+              <Link href={`/w/${websiteSubUrl}`} className={`${script} text-[1.75rem]`}>
+                {inviteData.wedding.brideFirstName} &amp; {inviteData.wedding.groomFirstName}
+              </Link>
+              <h1 className={`${script} mt-6 text-5xl leading-tight`}>Update our details</h1>
+              <p className='max-w-xl text-balance text-sm leading-6'>
+                Please confirm the names and mailing address we should use for future physical
+                invitations.
+              </p>
+            </header>
+
+            <HouseholdDetailsForm
+              inviteData={inviteData}
+              action={updateHouseholdDetails}
+              errorMessage={getErrorMessage(resolvedSearchParams?.error)}
+              inviteHref={`/w/${websiteSubUrl}/save-the-date`}
+              variant='vineyard'
+            />
+          </section>
+        </main>
+      </TemplateThemeProvider>
+    )
   }
 
   return (

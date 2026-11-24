@@ -13,6 +13,7 @@ import { buildSaveTheDateCalendarLinks } from '~/lib/website/calendar'
 import { householdInviteCookieName } from '~/lib/website/cookies'
 import { householdInviteService } from '~/server/application/household-invite'
 import { resolveTemplate, TemplateThemeProvider } from '~/templates'
+import { VineyardHouseholdSaveTheDate } from '~/templates/vineyard/components/household-save-the-date'
 
 // Match the template surfaces: headings use the template heading font, labels
 // fall back to the body font when a template doesn't define a separate label font.
@@ -137,6 +138,49 @@ export default async function SaveTheDatePage({ params, searchParams }: SaveTheD
     location: location ?? undefined,
     events: inviteData.events,
   })
+
+  if (template.id === 'vineyard') {
+    const guestNames = inviteData.guests
+      .filter((guest) => guest.isTagAlong !== true)
+      .map((guest) => formatGuestName(guest))
+    return (
+      <TemplateThemeProvider template={template}>
+        <main className='min-h-screen bg-background px-5 py-12 text-foreground sm:py-16'>
+          <div className='mx-auto flex min-h-[calc(100vh-6rem)] w-full max-w-2xl items-center'>
+            <EnvelopeReveal
+              coupleNames={`${inviteData.wedding.brideFirstName} & ${inviteData.wedding.groomFirstName}`}
+              coupleNameClassName='font-[family-name:var(--tpl-script-font)]'
+              websiteSubUrl={websiteSubUrl}
+            >
+              <VineyardHouseholdSaveTheDate
+                websiteSubUrl={websiteSubUrl}
+                brideFirstName={inviteData.wedding.brideFirstName}
+                groomFirstName={inviteData.wedding.groomFirstName}
+                formattedDate={formattedDate}
+                location={location}
+                guestNames={guestNames}
+                calendarLinks={calendarLinks}
+                copy={saveTheDateCopy}
+                showUpdatedNotice={resolvedSearchParams?.updated === '1'}
+                labels={{
+                  saveTheDate: t('saveTheDate'),
+                  date: t('date'),
+                  location: t('location'),
+                  addToCalendar: t('addToCalendar'),
+                  invitedHousehold: t('invitedHousehold'),
+                  toBeAnnounced: t('toBeAnnounced'),
+                  formalInvitationNote: t('formalInvitationNote'),
+                  updateDetails: t('updateDetails'),
+                  viewWebsite: t('viewWebsite'),
+                  detailsUpdated: t('detailsUpdated'),
+                }}
+              />
+            </EnvelopeReveal>
+          </div>
+        </main>
+      </TemplateThemeProvider>
+    )
+  }
 
   return (
     <TemplateThemeProvider template={template}>
