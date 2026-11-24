@@ -5,10 +5,12 @@ import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import type { Event } from '~/app/utils/shared-types'
 import {
+  buildHouseholdPayloads,
   downloadGuestCsvTemplate,
-  type GuestCsvRowOutput,
+  groupRowsIntoHouseholds,
   type ParsedCsvRow,
   parseCsvFile,
+  type ValidParsedCsvRow,
 } from '~/components/guest-list/guest-csv-import.schema'
 import { Button } from '~/components/ui/button'
 import {
@@ -28,8 +30,6 @@ import { api } from '~/trpc/react'
 
 type Step = 'upload' | 'preview'
 
-type ValidRow = ParsedCsvRow & { valid: true; data: GuestCsvRowOutput }
-
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
@@ -42,11 +42,13 @@ function PreviewTable({ rows }: PreviewTableProps) {
       <table className='w-full text-sm'>
         <thead className='sticky top-0 bg-muted'>
           <tr>
-            {['#', 'First Name', 'Last Name', 'Email', 'Phone', 'Age Group', 'Status'].map((h) => (
-              <th key={h} className='px-3 py-2 text-left font-medium text-muted-foreground'>
-                {h}
-              </th>
-            ))}
+            {['#', 'First Name', 'Last Name', 'Email', 'Household', 'Primary', 'Status'].map(
+              (h) => (
+                <th key={h} className='px-3 py-2 text-left font-medium text-muted-foreground'>
+                  {h}
+                </th>
+              )
+            )}
           </tr>
         </thead>
         <tbody>
@@ -61,8 +63,10 @@ function PreviewTable({ rows }: PreviewTableProps) {
               <td className='px-3 py-2'>{row.raw.firstName || '—'}</td>
               <td className='px-3 py-2'>{row.raw.lastName || '—'}</td>
               <td className='px-3 py-2 text-muted-foreground'>{row.raw.email || '—'}</td>
-              <td className='px-3 py-2 text-muted-foreground'>{row.raw.phone || '—'}</td>
-              <td className='px-3 py-2 text-muted-foreground'>{row.raw.ageGroup || 'ADULT'}</td>
+              <td className='px-3 py-2 text-muted-foreground'>{row.raw.household || '—'}</td>
+              <td className='px-3 py-2 text-muted-foreground'>
+                {row.valid && row.data.primary ? 'Yes' : '—'}
+              </td>
               <td className='px-3 py-2'>
                 {row.valid ? (
                   <span className='font-medium text-success text-xs'>Valid</span>
@@ -97,7 +101,8 @@ export function CsvUploadDialog({ open, onOpenChange, events }: CsvUploadDialogP
   const [fileName, setFileName] = useState('')
   const [isParsing, setIsParsing] = useState(false)
 
-  const validRows = parsedRows.filter((r): r is ValidRow => r.valid)
+  const validRows = parsedRows.filter((r): r is ValidParsedCsvRow => r.valid)
+  const householdCount = groupRowsIntoHouseholds(validRows).length
   const invalidCount = parsedRows.length - validRows.length
 
   // Reset dialog state when it closes
@@ -112,12 +117,14 @@ export function CsvUploadDialog({ open, onOpenChange, events }: CsvUploadDialogP
 
   const bulkCreateMutation = api.household.bulkCreate.useMutation({
     onSuccess: ({ created, failed }) => {
+      // `created` and `failed` count households, since a row group is created as one household.
+      const households = `${created} household${created === 1 ? '' : 's'}`
       if (failed > 0) {
-        toast.warning(
-          `Imported ${created} guest${created === 1 ? '' : 's'}, ${failed} skipped due to errors.`
-        )
+        toast.warning(`Imported ${households}, ${failed} skipped due to errors.`)
       } else {
-        toast.success(`Successfully imported ${created} guest${created === 1 ? '' : 's'}!`)
+        toast.success(
+          `Successfully imported ${validRows.length} guest${validRows.length === 1 ? '' : 's'} in ${households}!`
+        )
       }
       router.refresh()
       onOpenChange(false)
@@ -149,39 +156,25 @@ export function CsvUploadDialog({ open, onOpenChange, events }: CsvUploadDialogP
   const handleImport = () => {
     if (validRows.length === 0) return
     const invites = Object.fromEntries(events.map((e) => [e.id, 'Not Invited']))
-    const households = validRows.map(({ data }) => ({
-      address1: data.address1,
-      address2: data.address2,
-      city: data.city,
-      state: data.state,
-      country: data.country,
-      zipCode: data.zipCode,
-      notes: data.notes,
-      guestParty: [
-        {
-          firstName: data.firstName,
-          lastName: data.lastName,
-          email: data.email,
-          phone: data.phone,
-          ageGroup: data.ageGroup,
-          isPrimaryContact: true,
-          tagIds: [] as string[],
-          invites,
-        },
-      ],
-    }))
+    const households = buildHouseholdPayloads(validRows, invites)
     bulkCreateMutation.mutate({ households })
   }
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className='max-w-2xl'>
+      <DialogContent className='max-w-3xl'>
         {step === 'upload' ? (
           <>
             <DialogHeader>
               <DialogTitle>Import Guests from CSV</DialogTitle>
               <DialogDescription>
-                Upload a CSV file to bulk-add guests. Each row becomes one household.
+                Upload a CSV file to bulk-add guests. Each row becomes its own household, unless
+                rows share a value in the <code>household</code> column, in which case they are
+                imported together.
+                <span className='block'>
+                  Mark one guest per household in the <code>primary</code> column (yes); otherwise
+                  the first guest listed is the primary contact.
+                </span>
                 <span className='block'>
                   Phone must be E.164 format (for example: +12025550123).
                 </span>
@@ -210,7 +203,8 @@ export function CsvUploadDialog({ open, onOpenChange, events }: CsvUploadDialogP
             <DialogHeader>
               <DialogTitle>Preview Import</DialogTitle>
               <DialogDescription>
-                {fileName} &mdash; {validRows.length} valid row{validRows.length !== 1 ? 's' : ''}
+                {fileName} &mdash; {validRows.length} valid row{validRows.length !== 1 ? 's' : ''}{' '}
+                in {householdCount} household{householdCount !== 1 ? 's' : ''}
                 {invalidCount > 0 && (
                   <span className='text-destructive'>
                     {' '}

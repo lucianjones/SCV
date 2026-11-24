@@ -5,7 +5,14 @@
  * ageGroup coercion, and parseCsvFile() row mapping.
  */
 
-import { guestCsvRowSchema, parseCsvFile } from '~/components/guest-list/guest-csv-import.schema'
+import {
+  buildHouseholdPayloads,
+  groupRowsIntoHouseholds,
+  guestCsvRowSchema,
+  parseCsvFile,
+  type ValidParsedCsvRow,
+} from '~/components/guest-list/guest-csv-import.schema'
+import { bulkCreateHouseholdsSchema } from '~/server/domains/household/household.validator'
 
 // ---------------------------------------------------------------------------
 // guestCsvRowSchema
@@ -412,5 +419,170 @@ describe('parseCsvFile', () => {
 
     expect(rows[0]?.raw.firstName).toBe('John')
     expect(rows[0]?.raw.lastName).toBe('Smith')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Household grouping
+// ---------------------------------------------------------------------------
+
+describe('household grouping', () => {
+  const makeCsvFile = (content: string) =>
+    new File([new Blob([content], { type: 'text/csv' })], 'test.csv', { type: 'text/csv' })
+
+  const HEADERS = 'firstName,lastName,email,address1,city,notes,household,primary'
+  const INVITES = { 'event-1': 'Not Invited' }
+
+  const parseValid = async (rows: string[]): Promise<ValidParsedCsvRow[]> => {
+    const parsed = await parseCsvFile(makeCsvFile([HEADERS, ...rows].join('\n')))
+    return parsed.filter((row): row is ValidParsedCsvRow => row.valid)
+  }
+
+  it('parses the household and primary columns', () => {
+    const result = guestCsvRowSchema.safeParse({
+      firstName: 'John',
+      lastName: 'Smith',
+      household: '  Smith Family ',
+      primary: 'Yes',
+    })
+
+    expect(result.data?.household).toBe('Smith Family')
+    expect(result.data?.primary).toBe(true)
+  })
+
+  it.each(['yes', 'Y', 'TRUE', '1', 'x'])('treats "%s" as primary', (value) => {
+    expect(
+      guestCsvRowSchema.safeParse({ firstName: 'A', lastName: 'B', primary: value }).data?.primary
+    ).toBe(true)
+  })
+
+  it.each(['', 'no', 'false', '0', 'maybe'])('does not treat "%s" as primary', (value) => {
+    expect(
+      guestCsvRowSchema.safeParse({ firstName: 'A', lastName: 'B', primary: value }).data?.primary
+    ).toBeUndefined()
+  })
+
+  it('puts rows with the same household value into one household, ignoring case and spacing', async () => {
+    const rows = await parseValid([
+      'John,Smith,,,,,Smith Family,yes',
+      'Jane,Smith,,,,,smith  family,',
+      'Kid,Smith,,,,,SMITH FAMILY,',
+      'Alex,Doe,,,,,Doe,',
+    ])
+
+    const groups = groupRowsIntoHouseholds(rows)
+
+    expect(groups.map((group) => group.map((row) => row.data.firstName))).toEqual([
+      ['John', 'Jane', 'Kid'],
+      ['Alex'],
+    ])
+  })
+
+  it('keeps rows with a blank household as separate households (previous behavior)', async () => {
+    const rows = await parseValid(['John,Smith,,,,,,', 'Jane,Smith,,,,,,', 'Alex,Doe,,,,,,'])
+
+    const payloads = buildHouseholdPayloads(rows, INVITES)
+
+    expect(payloads).toHaveLength(3)
+    for (const payload of payloads) {
+      expect(payload.guestParty).toHaveLength(1)
+      expect(payload.guestParty[0]?.isPrimaryContact).toBe(true)
+    }
+  })
+
+  it('makes the row marked primary the household primary contact', async () => {
+    const rows = await parseValid(['John,Smith,,,,,Smith,', 'Jane,Smith,,,,,Smith,yes'])
+
+    const [household] = buildHouseholdPayloads(rows, INVITES)
+
+    expect(household?.guestParty.map((guest) => [guest.firstName, guest.isPrimaryContact])).toEqual(
+      [
+        ['John', false],
+        ['Jane', true],
+      ]
+    )
+  })
+
+  it('defaults the first row to primary when none is marked', async () => {
+    const rows = await parseValid(['John,Smith,,,,,Smith,', 'Jane,Smith,,,,,Smith,'])
+
+    const [household] = buildHouseholdPayloads(rows, INVITES)
+
+    expect(household?.guestParty.map((guest) => guest.isPrimaryContact)).toEqual([true, false])
+  })
+
+  it('takes the address and notes from the first row in the household that has them', async () => {
+    const rows = await parseValid([
+      'John,Smith,,,,,Smith,yes',
+      'Jane,Smith,,1 Mud Lane,Swampside,Vegetarian,Smith,',
+      'Kid,Smith,,2 Other St,Elsewhere,Ignored,Smith,',
+    ])
+
+    const [household] = buildHouseholdPayloads(rows, INVITES)
+
+    expect(household).toMatchObject({
+      address1: '1 Mud Lane',
+      city: 'Swampside',
+      notes: 'Vegetarian',
+    })
+    expect(household?.guestParty).toHaveLength(3)
+    expect(household?.guestParty[0]?.invites).toEqual(INVITES)
+  })
+
+  it('rejects every row of a household that has more than one primary contact', async () => {
+    const parsed = await parseCsvFile(
+      makeCsvFile(
+        [
+          HEADERS,
+          'John,Smith,,,,,Smith,yes',
+          'Jane,Smith,,,,,Smith,yes',
+          'Alex,Doe,,,,,Doe,yes',
+        ].join('\n')
+      )
+    )
+
+    expect(parsed.map((row) => row.valid)).toEqual([false, false, true])
+    const first = parsed[0]
+    expect(first?.valid === false && first.errors[0]).toContain('more than one primary contact')
+  })
+
+  it('accepts Household and Primary headers in any case', async () => {
+    const parsed = await parseCsvFile(
+      makeCsvFile(
+        ['firstName,lastName,HOUSEHOLD,Primary', 'John,Smith,Smith,yes', 'Jane,Smith,Smith,'].join(
+          '\n'
+        )
+      )
+    )
+
+    expect(parsed.every((row) => row.valid)).toBe(true)
+    const valid = parsed.filter((row): row is ValidParsedCsvRow => row.valid)
+    expect(groupRowsIntoHouseholds(valid)).toHaveLength(1)
+    expect(valid[0]?.data.primary).toBe(true)
+  })
+
+  it('still imports files without the new columns', async () => {
+    const parsed = await parseCsvFile(
+      makeCsvFile(['firstName,lastName', 'John,Smith', 'Jane,Doe'].join('\n'))
+    )
+
+    const valid = parsed.filter((row): row is ValidParsedCsvRow => row.valid)
+    expect(buildHouseholdPayloads(valid, INVITES)).toHaveLength(2)
+  })
+
+  it('produces payloads the bulk-create endpoint accepts (exactly one primary per household)', async () => {
+    const rows = await parseValid([
+      'John,Smith,john@example.com,1 Mud Lane,Swampside,,Smith,yes',
+      'Jane,Smith,,,,,Smith,',
+      'Alex,Doe,,,,,,',
+    ])
+
+    const result = bulkCreateHouseholdsSchema.safeParse({
+      households: buildHouseholdPayloads(rows, INVITES),
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.data?.households).toHaveLength(2)
+    expect(result.data?.households[0]?.guestParty).toHaveLength(2)
   })
 })
