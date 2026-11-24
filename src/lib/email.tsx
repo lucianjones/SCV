@@ -99,3 +99,57 @@ export async function sendOrganizationInvitationEmail({
     html,
   })
 }
+
+export type TemplatedEmail = {
+  to: string
+  variables: Record<string, string | number>
+}
+
+export type TemplatedEmailBatchResult = {
+  sent: number
+  failures: Array<{ index: number; message: string }>
+}
+
+const RESEND_BATCH_LIMIT = 100
+
+/**
+ * Sends one Resend-template email per recipient using the batch API (up to 100 per request).
+ * Sender and subject come from the template. Each chunk carries an idempotency key derived from
+ * `idempotencyKey`, so re-sending an identical batch within Resend's 24h window is a no-op.
+ * Failures are reported per email (by index in `emails`) instead of throwing.
+ */
+export async function sendTemplatedEmailBatch(
+  templateId: string,
+  emails: TemplatedEmail[],
+  idempotencyKey: string
+): Promise<TemplatedEmailBatchResult> {
+  let sent = 0
+  const failures: TemplatedEmailBatchResult['failures'] = []
+
+  for (let start = 0; start < emails.length; start += RESEND_BATCH_LIMIT) {
+    const chunk = emails.slice(start, start + RESEND_BATCH_LIMIT)
+    const { error, data } = await getResend().batch.send(
+      chunk.map((email) => ({
+        to: email.to,
+        template: { id: templateId, variables: email.variables },
+      })),
+      { batchValidation: 'permissive', idempotencyKey: `${idempotencyKey}-${start}` }
+    )
+
+    if (error || !data) {
+      const message = error?.message ?? 'Resend did not accept the batch'
+      for (let offset = 0; offset < chunk.length; offset++) {
+        failures.push({ index: start + offset, message })
+      }
+      continue
+    }
+
+    const failedHere = data.errors ?? []
+    for (const failure of failedHere) {
+      failures.push({ index: start + failure.index, message: failure.message })
+    }
+    sent += chunk.length - failedHere.length
+  }
+
+  return { sent, failures }
+}

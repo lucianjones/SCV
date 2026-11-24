@@ -43,6 +43,8 @@ export const env = createEnv({
     // Optional: Resend email service (required for OTP login, password reset, email verification)
     RESEND_API_KEY: z.string().min(1).optional(),
     EMAIL_FROM: z.string().min(1).default('noreply@oswp.app'),
+    // Resend template (id or alias) for the save-the-date email; it receives SAVE_THE_DATE_URL.
+    RESEND_SAVE_THE_DATE_TEMPLATE_ID: z.string().min(1).optional(),
     // Etta AI Agent
     AI_GATEWAY_API_KEY: z.string().min(1).optional(), // Vercel AI Gateway API key
     ANTHROPIC_API_KEY: z.string().min(1).optional(),
@@ -129,6 +131,7 @@ export const env = createEnv({
     BLOB_READ_WRITE_TOKEN: process.env.BLOB_READ_WRITE_TOKEN,
     RESEND_API_KEY: process.env.RESEND_API_KEY,
     EMAIL_FROM: process.env.EMAIL_FROM,
+    RESEND_SAVE_THE_DATE_TEMPLATE_ID: process.env.RESEND_SAVE_THE_DATE_TEMPLATE_ID,
     AI_GATEWAY_API_KEY: process.env.AI_GATEWAY_API_KEY,
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,

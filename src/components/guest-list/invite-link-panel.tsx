@@ -3,6 +3,7 @@
 import { useState } from 'react'
 
 import { SelfInviteLinkManager } from '~/components/guest-list/self-invite-link-manager'
+import { SendSaveTheDates } from '~/components/guest-list/send-save-the-dates'
 import { Button } from '~/components/ui/button'
 
 export function InviteLinkPanel() {
@@ -10,14 +11,17 @@ export function InviteLinkPanel() {
 
   return (
     <div className='flex flex-col items-end gap-3'>
-      <Button
-        variant='outline'
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        aria-controls='invite-link-panel'
-      >
-        Invite Link
-      </Button>
+      <div className='flex flex-wrap items-center justify-end gap-2'>
+        <SendSaveTheDates />
+        <Button
+          variant='outline'
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          aria-controls='invite-link-panel'
+        >
+          Invite Link
+        </Button>
+      </div>
       {open && (
         <div
           id='invite-link-panel'

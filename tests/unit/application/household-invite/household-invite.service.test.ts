@@ -161,6 +161,76 @@ describe('HouseholdInviteService', () => {
     expect(db.household.update).not.toHaveBeenCalled()
   })
 
+  it('regenerates a new link even when a valid one exists', async () => {
+    const db = createDb()
+    db.household.findFirst.mockResolvedValue({
+      id: 'household-123',
+      weddingId: 'wedding-123',
+      inviteCode: 'al-existing',
+      inviteCodeExpiresAt: new Date('2027-01-01T00:00:00.000Z'),
+      guests: [{ firstName: 'Ada', lastName: 'Lovelace' }],
+    })
+    db.website.findFirst.mockResolvedValue({ subUrl: 'harry-and-hermione' })
+    const service = new HouseholdInviteService(db as never)
+
+    const result = await service.regenerateInviteLink(authz, 'wedding-123', {
+      householdId: 'household-123',
+      baseUrl: 'https://example.com',
+    })
+
+    expect(result.url).not.toContain('al-existing')
+    expect(result.expiresAt).toEqual(new Date('2027-06-18T12:00:00.000Z'))
+    expect(db.household.update).toHaveBeenCalledWith({
+      where: { id: 'household-123' },
+      data: {
+        inviteCode: expect.stringMatching(/^al-[a-z0-9]+$/),
+        inviteCodeExpiresAt: new Date('2027-06-18T12:00:00.000Z'),
+      },
+    })
+  })
+
+  it('ensures links for many households, reusing valid codes and creating missing or expired ones', async () => {
+    const db = createDb()
+    db.website.findFirst.mockResolvedValue({ subUrl: 'harry-and-hermione' })
+    ;(db.household as unknown as { findMany: jest.Mock }).findMany = jest.fn().mockResolvedValue([
+      {
+        id: 'h-valid',
+        inviteCode: 'al-valid',
+        inviteCodeExpiresAt: new Date('2027-01-01T00:00:00.000Z'),
+        guests: [{ firstName: 'Ada', lastName: 'Lovelace' }],
+      },
+      {
+        id: 'h-none',
+        inviteCode: null,
+        inviteCodeExpiresAt: null,
+        guests: [{ firstName: 'Grace', lastName: 'Hopper' }],
+      },
+      {
+        id: 'h-expired',
+        inviteCode: 'al-old',
+        inviteCodeExpiresAt: new Date('2026-01-01T00:00:00.000Z'),
+        guests: [{ firstName: 'Linus', lastName: 'Torvalds' }],
+      },
+    ])
+    const service = new HouseholdInviteService(db as never)
+
+    const urls = await service.ensureInviteLinks(
+      'wedding-123',
+      ['h-valid', 'h-none', 'h-expired'],
+      'https://example.com/'
+    )
+
+    expect(urls.get('h-valid')).toBe(
+      'https://example.com/w/harry-and-hermione/save-the-date/al-valid'
+    )
+    expect(urls.get('h-none')).toMatch(/\/save-the-date\/gh-[a-z0-9]+$/)
+    expect(urls.get('h-expired')).toMatch(/\/save-the-date\/lt-[a-z0-9]+$/)
+    expect(db.household.update).toHaveBeenCalledTimes(2)
+    expect(db.household.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'h-valid' } })
+    )
+  })
+
   it('creates a new link when the existing one has expired', async () => {
     const db = createDb()
     db.household.findFirst.mockResolvedValue({

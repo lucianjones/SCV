@@ -1,4 +1,4 @@
-import { Check, Copy } from 'lucide-react'
+import { Check, Copy, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { type Dispatch, type SetStateAction, useEffect, useMemo, useState } from 'react'
@@ -142,6 +142,7 @@ export function GuestDetailPanelContent(props: Readonly<GuestDetailPanelContentP
   const [isMembersModalOpen, setIsMembersModalOpen] = useState(false)
   const [copiedInviteLink, setCopiedInviteLink] = useState(false)
   const generateHouseholdInviteLink = api.householdInvite.generateLink.useMutation()
+  const regenerateHouseholdInviteLink = api.householdInvite.regenerateLink.useMutation()
   const { data: website } = api.website.getByUserId.useQuery()
   const isWebsiteMissing = website === null
   const partyMembers = selectedHousehold.guests.map((guest) => ({
@@ -184,6 +185,34 @@ export function GuestDetailPanelContent(props: Readonly<GuestDetailPanelContentP
           ? error.message
           : 'Failed to copy save-the-date link'
       toast.error(message)
+    }
+  }
+
+  const handleRegenerateHouseholdInviteLink = async () => {
+    if (typeof window === 'undefined') return
+    if (
+      !window.confirm(
+        'Generate a new save-the-date link for this household? The link you already sent will stop working.'
+      )
+    ) {
+      return
+    }
+
+    try {
+      const result = await regenerateHouseholdInviteLink.mutateAsync({
+        householdId: selectedHousehold.id,
+      })
+      const copied = await copyToClipboard(result.url)
+      toast.success(
+        copied
+          ? 'New save-the-date link copied. The previous link no longer works.'
+          : 'New save-the-date link ready to copy. The previous link no longer works.',
+        { description: copied ? undefined : result.url }
+      )
+    } catch (error) {
+      toast.error(
+        error instanceof Error && error.message ? error.message : 'Failed to generate a new link'
+      )
     }
   }
 
@@ -271,19 +300,30 @@ export function GuestDetailPanelContent(props: Readonly<GuestDetailPanelContentP
           title='Save the Date'
           contentClassName='space-y-2'
           action={
-            <button
-              type='button'
-              onClick={handleCopyHouseholdInviteLink}
-              disabled={generateHouseholdInviteLink.isPending || isWebsiteMissing}
-              className='inline-flex items-center gap-1.5 rounded-md border border-border/70 px-2 py-1 font-medium text-primary text-xs hover:bg-primary/5 disabled:pointer-events-none disabled:opacity-50'
-            >
-              {copiedInviteLink ? (
-                <Check className='h-3.5 w-3.5' aria-hidden='true' />
-              ) : (
-                <Copy className='h-3.5 w-3.5' aria-hidden='true' />
-              )}
-              Copy link
-            </button>
+            <div className='flex items-center gap-2'>
+              <button
+                type='button'
+                onClick={handleCopyHouseholdInviteLink}
+                disabled={generateHouseholdInviteLink.isPending || isWebsiteMissing}
+                className='inline-flex items-center gap-1.5 rounded-md border border-border/70 px-2 py-1 font-medium text-primary text-xs hover:bg-primary/5 disabled:pointer-events-none disabled:opacity-50'
+              >
+                {copiedInviteLink ? (
+                  <Check className='h-3.5 w-3.5' aria-hidden='true' />
+                ) : (
+                  <Copy className='h-3.5 w-3.5' aria-hidden='true' />
+                )}
+                Copy link
+              </button>
+              <button
+                type='button'
+                onClick={handleRegenerateHouseholdInviteLink}
+                disabled={regenerateHouseholdInviteLink.isPending || isWebsiteMissing}
+                className='inline-flex items-center gap-1.5 rounded-md border border-border/70 px-2 py-1 font-medium text-foreground/70 text-xs hover:bg-foreground/5 disabled:pointer-events-none disabled:opacity-50'
+              >
+                <RefreshCw className='h-3.5 w-3.5' aria-hidden='true' />
+                New link
+              </button>
+            </div>
           }
         >
           {isWebsiteMissing ? (

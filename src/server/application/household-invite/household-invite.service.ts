@@ -176,13 +176,85 @@ const isUniqueConstraintError = (error: unknown) =>
 export class HouseholdInviteService {
   constructor(private db: HouseholdInviteDb) {}
 
+  /** Returns the household's current save-the-date link, creating one only if none is valid. */
   async generateInviteLink(
     ctx: AuthzContext,
     weddingId: string,
     input: { householdId: string; baseUrl: string }
   ): Promise<{ url: string; expiresAt: Date }> {
     requirePermission(ctx, { guest_invitation: ['send'] })
+    return this.resolveInviteLink(weddingId, input, { forceNew: false })
+  }
 
+  /** Replaces the household's link with a brand-new one; the previous link stops working. */
+  async regenerateInviteLink(
+    ctx: AuthzContext,
+    weddingId: string,
+    input: { householdId: string; baseUrl: string }
+  ): Promise<{ url: string; expiresAt: Date }> {
+    requirePermission(ctx, { guest_invitation: ['send'] })
+    return this.resolveInviteLink(weddingId, input, { forceNew: true })
+  }
+
+  /**
+   * Current save-the-date URLs for many households at once (creating links only where none is
+   * valid). Callers must have already authorised the request.
+   */
+  async ensureInviteLinks(
+    weddingId: string,
+    householdIds: string[],
+    baseUrl: string
+  ): Promise<Map<string, string>> {
+    const website = await this.db.website.findFirst({
+      where: { weddingId },
+      select: { subUrl: true },
+    })
+    if (!website) {
+      throw new TRPCError({
+        code: 'PRECONDITION_FAILED',
+        message: 'Publish a wedding website before generating household invite links',
+      })
+    }
+
+    const households = await this.db.household.findMany({
+      where: { id: { in: householdIds }, weddingId },
+      select: {
+        id: true,
+        inviteCode: true,
+        inviteCodeExpiresAt: true,
+        guests: {
+          orderBy: { id: 'asc' },
+          take: 1,
+          select: { firstName: true, lastName: true },
+        },
+      },
+    })
+
+    const urls = new Map<string, string>()
+    for (const household of households) {
+      let code = household.inviteCode
+      const isValid =
+        code &&
+        household.inviteCodeExpiresAt &&
+        household.inviteCodeExpiresAt.getTime() > Date.now()
+      if (!code || !isValid) {
+        const expiresAt = new Date()
+        expiresAt.setUTCFullYear(expiresAt.getUTCFullYear() + 1)
+        code = await this.assignInviteCode(household.id, household.guests, expiresAt)
+      }
+      urls.set(
+        household.id,
+        `${normalizeBaseUrl(baseUrl)}/w/${website.subUrl}/save-the-date/${code}`
+      )
+    }
+    return urls
+  }
+
+  private async resolveInviteLink(
+    weddingId: string,
+    input: { householdId: string; baseUrl: string },
+    options: { forceNew: boolean }
+  ): Promise<{ url: string; expiresAt: Date }> {
     const household = await this.db.household.findFirst({
       where: { id: input.householdId, weddingId },
       select: {
@@ -220,6 +292,7 @@ export class HouseholdInviteService {
     // Copying the link again hands back the one already generated, so links that were already
     // shared keep working. A new code is only created when there is none yet or it has expired.
     if (
+      !options.forceNew &&
       household.inviteCode &&
       household.inviteCodeExpiresAt &&
       household.inviteCodeExpiresAt.getTime() > Date.now()
