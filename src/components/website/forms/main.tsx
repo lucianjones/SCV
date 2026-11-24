@@ -170,6 +170,10 @@ export default function MainRsvpForm({
         className={`m-auto w-full px-4 py-5 md:px-0 ${variant === 'vineyard' && currentStep === 1 ? 'max-w-[640px]' : 'max-w-[450px]'}`}
         onSubmit={(e) => {
           e.preventDefault()
+          // Steps 1 (find invitation) and 2 (confirm name) never submit the RSVP. Without this,
+          // pressing Enter in the name box submits an empty RSVP and skips to step 2 with no
+          // matched household.
+          if (currentStep < 3) return
           setSubmitError(null)
 
           const subUrl = weddingData.website?.subUrl

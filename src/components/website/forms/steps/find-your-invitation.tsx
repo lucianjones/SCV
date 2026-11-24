@@ -1,7 +1,7 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
-import { useState } from 'react'
+import { type KeyboardEvent, useState } from 'react'
 import type { StepFormProps } from '~/app/utils/shared-types'
 import { useRsvpForm, useUpdateRsvpForm } from '~/components/contexts/rsvp-form-context'
 import { api } from '~/trpc/react'
@@ -46,6 +46,13 @@ export default function FindYourInvitationForm({
     })
   }
 
+  // Enter searches (same as clicking the button) instead of submitting the surrounding form.
+  const onEnterSearch = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== 'Enter') return
+    event.preventDefault()
+    if (name.length > 0 && !isFetching) handleOnSearch()
+  }
+
   if (variant === 'vineyard') {
     return (
       <div className='flex flex-col items-center gap-5 rounded-2xl bg-foreground/[0.07] px-6 py-14 text-center sm:px-16'>
@@ -60,6 +67,7 @@ export default function FindYourInvitationForm({
               setName(e.target.value)
             }}
             value={name}
+            onKeyDown={onEnterSearch}
           />
           <span className='text-[0.65rem] leading-4'>{t('vineyardExample')}</span>
         </div>
@@ -96,6 +104,7 @@ export default function FindYourInvitationForm({
           setName(e.target.value)
         }}
         value={name}
+        onKeyDown={onEnterSearch}
       />
       {showError && (
         <p className='text-xs'>{isRateLimited ? t('tooManyRequests') : t('notFound')}</p>
