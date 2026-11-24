@@ -39,6 +39,18 @@ const VARIABLE_NAME = 'SAVE_THE_DATE_URL'
 type Recipient = { householdId: string; email: string }
 
 /**
+ * The address a household's save the date goes to: the primary contact's email when they have
+ * one, otherwise the first household member who has an email.
+ */
+export const chooseHouseholdEmail = (
+  guests: Array<{ email: string | null; isPrimaryContact: boolean }>
+): string | null => {
+  const withEmail = guests.filter((guest) => guest.email?.trim())
+  const chosen = withEmail.find((guest) => guest.isPrimaryContact) ?? withEmail[0]
+  return chosen?.email?.trim() || null
+}
+
+/**
  * Sends the Resend save-the-date template to every household that is invited to the ceremony and
  * has an email address, with that household's own save-the-date link as SAVE_THE_DATE_URL.
  *
@@ -126,6 +138,79 @@ export class SaveTheDateEmailService {
     }
   }
 
+  /**
+   * Emails one household its save-the-date link, regardless of whether it is invited to the
+   * ceremony (the couple chose to send it). Re-sending is allowed; only an identical request within
+   * the same minute is de-duplicated, so a double click does not send twice.
+   */
+  async sendToHousehold(
+    ctx: AuthzContext,
+    weddingId: string,
+    input: { householdId: string; baseUrl: string }
+  ): Promise<{ email: string }> {
+    requirePermission(ctx, { guest_invitation: ['send'] })
+
+    const templateId = this.deps.getTemplateId()
+    if (!this.deps.isEmailConfigured() || !templateId) {
+      throw new TRPCError({
+        code: 'PRECONDITION_FAILED',
+        message:
+          'Save-the-date emails are not set up. Add RESEND_API_KEY and RESEND_SAVE_THE_DATE_TEMPLATE_ID to your environment.',
+      })
+    }
+
+    const household = await this.db.household.findFirst({
+      where: { id: input.householdId, weddingId },
+      select: {
+        id: true,
+        guests: {
+          orderBy: { id: 'asc' },
+          select: { email: true, isPrimaryContact: true },
+        },
+      },
+    })
+    if (!household) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Household not found' })
+    }
+
+    const email = chooseHouseholdEmail(household.guests)
+    if (!email) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'No one in this household has an email address.',
+      })
+    }
+
+    const urls = await this.inviteService.ensureInviteLinks(
+      weddingId,
+      [household.id],
+      input.baseUrl
+    )
+    const url = urls.get(household.id)
+    if (!url) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Household not found' })
+    }
+
+    const minute = Math.floor(Date.now() / 60_000)
+    const idempotencyKey = `std-one-${createHash('sha256')
+      .update([weddingId, templateId, household.id, email, url, minute].join('\n'))
+      .digest('hex')}`
+
+    const { failures } = await this.deps.sendBatch(
+      templateId,
+      [{ to: email, variables: { [VARIABLE_NAME]: url } }],
+      idempotencyKey
+    )
+    if (failures.length > 0) {
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: `The email could not be sent: ${failures[0]?.message ?? 'unknown error'}`,
+      })
+    }
+
+    return { email }
+  }
+
   private async findRecipients(weddingId: string): Promise<{
     recipients: Recipient[]
     skippedNoEmail: number
@@ -166,9 +251,7 @@ export class SaveTheDateEmailService {
     const recipients: Recipient[] = []
     let skippedNoEmail = 0
     for (const household of households) {
-      const withEmail = household.guests.filter((guest) => guest.email?.trim())
-      const chosen = withEmail.find((guest) => guest.isPrimaryContact) ?? withEmail[0]
-      const email = chosen?.email?.trim()
+      const email = chooseHouseholdEmail(household.guests)
       if (email) recipients.push({ householdId: household.id, email })
       else skippedNoEmail += 1
     }

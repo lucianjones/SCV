@@ -1,4 +1,4 @@
-import { Check, Copy, RefreshCw } from 'lucide-react'
+import { Check, Copy, Mail, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { type Dispatch, type SetStateAction, useEffect, useMemo, useState } from 'react'
@@ -143,6 +143,7 @@ export function GuestDetailPanelContent(props: Readonly<GuestDetailPanelContentP
   const [copiedInviteLink, setCopiedInviteLink] = useState(false)
   const generateHouseholdInviteLink = api.householdInvite.generateLink.useMutation()
   const regenerateHouseholdInviteLink = api.householdInvite.regenerateLink.useMutation()
+  const emailSaveTheDate = api.householdInvite.sendSaveTheDateEmailToHousehold.useMutation()
   const { data: website } = api.website.getByUserId.useQuery()
   const isWebsiteMissing = website === null
   const partyMembers = selectedHousehold.guests.map((guest) => ({
@@ -185,6 +186,28 @@ export function GuestDetailPanelContent(props: Readonly<GuestDetailPanelContentP
           ? error.message
           : 'Failed to copy save-the-date link'
       toast.error(message)
+    }
+  }
+
+  // Same rule the server uses: the primary contact's email, else the first member with one.
+  const saveTheDateEmail = useMemo(() => {
+    const withEmail = selectedHousehold.guests.filter((guest) => guest.email?.trim())
+    return (
+      (withEmail.find((guest) => guest.isPrimaryContact) ?? withEmail[0])?.email?.trim() ?? null
+    )
+  }, [selectedHousehold])
+
+  const handleEmailSaveTheDate = async () => {
+    if (typeof window === 'undefined' || !saveTheDateEmail) return
+    if (!window.confirm(`Email the save the date to ${saveTheDateEmail}?`)) return
+
+    try {
+      const result = await emailSaveTheDate.mutateAsync({ householdId: selectedHousehold.id })
+      toast.success(`Save the date emailed to ${result.email}`)
+    } catch (error) {
+      toast.error(
+        error instanceof Error && error.message ? error.message : 'Failed to send the email'
+      )
     }
   }
 
@@ -300,7 +323,21 @@ export function GuestDetailPanelContent(props: Readonly<GuestDetailPanelContentP
           title='Save the Date'
           contentClassName='space-y-2'
           action={
-            <div className='flex items-center gap-2'>
+            <div className='flex flex-wrap items-center justify-end gap-2'>
+              <button
+                type='button'
+                onClick={handleEmailSaveTheDate}
+                disabled={emailSaveTheDate.isPending || isWebsiteMissing || !saveTheDateEmail}
+                title={
+                  saveTheDateEmail
+                    ? `Email the save the date to ${saveTheDateEmail}`
+                    : 'No one in this household has an email address'
+                }
+                className='inline-flex items-center gap-1.5 rounded-md border border-border/70 px-2 py-1 font-medium text-primary text-xs hover:bg-primary/5 disabled:pointer-events-none disabled:opacity-50'
+              >
+                <Mail className='h-3.5 w-3.5' aria-hidden='true' />
+                {emailSaveTheDate.isPending ? 'Sending…' : 'Email link'}
+              </button>
               <button
                 type='button'
                 onClick={handleCopyHouseholdInviteLink}

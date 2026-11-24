@@ -69,4 +69,14 @@ export const householdInviteRouter = createTRPCRouter({
       baseUrl: getTrustedBaseUrl(ctx.headers),
     })
   }),
+
+  sendSaveTheDateEmailToHousehold: protectedProcedure
+    .input(z.object({ householdId: z.string().min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      const weddingId = requireActiveWeddingId(ctx.auth.activeWeddingId)
+      return saveTheDateEmailService.sendToHousehold(ctx.authz, weddingId, {
+        householdId: input.householdId,
+        baseUrl: getTrustedBaseUrl(ctx.headers),
+      })
+    }),
 })

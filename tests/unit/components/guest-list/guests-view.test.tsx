@@ -157,6 +157,12 @@ jest.mock('~/trpc/react', () => ({
           isPending: false,
         }),
       },
+      sendSaveTheDateEmailToHousehold: {
+        useMutation: () => ({
+          mutateAsync: jest.fn().mockResolvedValue({ email: 'jane@example.com' }),
+          isPending: false,
+        }),
+      },
       regenerateLink: {
         useMutation: () => ({
           mutateAsync: jest

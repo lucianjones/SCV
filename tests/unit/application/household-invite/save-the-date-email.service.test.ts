@@ -1,7 +1,10 @@
 jest.mock('~/lib/auth-permissions', () => require('~/lib/__mocks__/auth-permissions'))
 
 import type { HouseholdInviteService } from '~/server/application/household-invite/household-invite.service'
-import { SaveTheDateEmailService } from '~/server/application/household-invite/save-the-date-email.service'
+import {
+  chooseHouseholdEmail,
+  SaveTheDateEmailService,
+} from '~/server/application/household-invite/save-the-date-email.service'
 
 const authz = {
   userId: 'user-123',
@@ -22,7 +25,10 @@ const createService = (
         .fn()
         .mockResolvedValue(options.events ?? [{ id: 'event-ceremony', name: 'Ceremony' }]),
     },
-    household: { findMany: jest.fn().mockResolvedValue(households) },
+    household: {
+      findMany: jest.fn().mockResolvedValue(households),
+      findFirst: jest.fn().mockResolvedValue(households[0] ?? null),
+    },
   }
   const inviteService = {
     ensureInviteLinks: jest.fn(async (_weddingId: string, ids: string[]) => {
@@ -204,5 +210,123 @@ describe('SaveTheDateEmailService', () => {
       service.send(authz as never, 'wedding-1', { baseUrl: 'https://example.com' })
     ).resolves.toEqual({ sent: 0, failed: 0, skippedNoEmail: 0, errors: [] })
     expect(sendBatch).not.toHaveBeenCalled()
+  })
+
+  describe('sendToHousehold', () => {
+    const input = { householdId: 'h-1', baseUrl: 'https://example.com' }
+
+    it('emails the household its own link, even outside the ceremony list, and returns the address', async () => {
+      const { service, sendBatch, db, inviteService } = createService([
+        household('h-1', [
+          { email: 'first@example.com', isPrimaryContact: false },
+          { email: 'primary@example.com', isPrimaryContact: true },
+        ]),
+      ])
+
+      await expect(service.sendToHousehold(authz as never, 'wedding-1', input)).resolves.toEqual({
+        email: 'primary@example.com',
+      })
+
+      expect(db.household.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'h-1', weddingId: 'wedding-1' } })
+      )
+      expect(inviteService.ensureInviteLinks).toHaveBeenCalledWith(
+        'wedding-1',
+        ['h-1'],
+        'https://example.com'
+      )
+      expect(sendBatch).toHaveBeenCalledWith(
+        'tmpl_std',
+        [
+          {
+            to: 'primary@example.com',
+            variables: { SAVE_THE_DATE_URL: 'https://example.com/w/site/save-the-date/h-1' },
+          },
+        ],
+        expect.stringMatching(/^std-one-[0-9a-f]{64}$/)
+      )
+    })
+
+    it('rejects a household where nobody has an email address', async () => {
+      const { service, sendBatch } = createService([
+        household('h-1', [{ email: null, isPrimaryContact: true }]),
+      ])
+
+      await expect(
+        service.sendToHousehold(authz as never, 'wedding-1', input)
+      ).rejects.toHaveProperty('code', 'BAD_REQUEST')
+      expect(sendBatch).not.toHaveBeenCalled()
+    })
+
+    it('rejects a household outside the wedding', async () => {
+      const { service, db, sendBatch } = createService([])
+      db.household.findFirst.mockResolvedValue(null)
+
+      await expect(
+        service.sendToHousehold(authz as never, 'wedding-1', input)
+      ).rejects.toHaveProperty('code', 'NOT_FOUND')
+      expect(sendBatch).not.toHaveBeenCalled()
+    })
+
+    it('refuses when the template is not configured', async () => {
+      const { service, sendBatch } = createService(
+        [household('h-1', [{ email: 'a@example.com', isPrimaryContact: true }])],
+        { templateId: undefined }
+      )
+
+      await expect(
+        service.sendToHousehold(authz as never, 'wedding-1', input)
+      ).rejects.toHaveProperty('code', 'PRECONDITION_FAILED')
+      expect(sendBatch).not.toHaveBeenCalled()
+    })
+
+    it('surfaces a send failure instead of reporting success', async () => {
+      const { service, sendBatch } = createService([
+        household('h-1', [{ email: 'a@example.com', isPrimaryContact: true }]),
+      ])
+      sendBatch.mockResolvedValue({
+        sent: 0,
+        failures: [{ index: 0, message: 'Domain not verified' }],
+      })
+
+      await expect(service.sendToHousehold(authz as never, 'wedding-1', input)).rejects.toThrow(
+        'Domain not verified'
+      )
+    })
+
+    it('allows deliberate re-sends but de-duplicates an identical request in the same minute', async () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-06-18T12:00:10.000Z'))
+      const households = [household('h-1', [{ email: 'a@example.com', isPrimaryContact: true }])]
+      const { service, sendBatch } = createService(households)
+
+      await service.sendToHousehold(authz as never, 'wedding-1', input)
+      jest.setSystemTime(new Date('2026-06-18T12:00:40.000Z'))
+      await service.sendToHousehold(authz as never, 'wedding-1', input)
+      jest.setSystemTime(new Date('2026-06-18T12:01:05.000Z'))
+      await service.sendToHousehold(authz as never, 'wedding-1', input)
+      jest.useRealTimers()
+
+      const keys = sendBatch.mock.calls.map((call) => call[2])
+      expect(keys[0]).toBe(keys[1])
+      expect(keys[2]).not.toBe(keys[0])
+    })
+  })
+})
+
+describe('chooseHouseholdEmail', () => {
+  it('prefers the primary contact, falls back to the first guest with an email, else null', () => {
+    expect(
+      chooseHouseholdEmail([
+        { email: 'a@example.com', isPrimaryContact: false },
+        { email: ' b@example.com ', isPrimaryContact: true },
+      ])
+    ).toBe('b@example.com')
+    expect(
+      chooseHouseholdEmail([
+        { email: null, isPrimaryContact: true },
+        { email: 'c@example.com', isPrimaryContact: false },
+      ])
+    ).toBe('c@example.com')
+    expect(chooseHouseholdEmail([{ email: '  ', isPrimaryContact: true }])).toBeNull()
   })
 })
