@@ -30,6 +30,7 @@ const createDb = () => {
     household: {
       findFirst: jest.fn(),
       update: jest.fn().mockResolvedValue({}),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     website: {
       findFirst: jest.fn(),
@@ -298,6 +299,50 @@ describe('HouseholdInviteService', () => {
 
     await expect(service.getInviteData('harry-and-hermione', undefined)).resolves.toBeNull()
     expect(db.household.findFirst).not.toHaveBeenCalled()
+  })
+
+  describe('updateAttendanceIntent', () => {
+    it.each([
+      ['yes', 5],
+      ['maybe', 3],
+      ['no', 1],
+    ] as const)('maps "%s" to likelihood %i on the scoped household only', async (intent, likelihood) => {
+      const db = createDb()
+      db.website.findFirst.mockResolvedValue({ weddingId: 'wedding-123' })
+      db.household.findFirst.mockResolvedValue(inviteHousehold)
+      const service = new HouseholdInviteService(db as never)
+
+      await expect(
+        service.updateAttendanceIntent('harry-and-hermione', INVITE_CODE, intent)
+      ).resolves.toEqual({ success: true })
+
+      expect(db.household.updateMany).toHaveBeenCalledWith({
+        where: { id: 'household-123', weddingId: 'wedding-123' },
+        data: { likelihoodOfAttending: likelihood },
+      })
+    })
+
+    it('rejects an invalid or expired invite without writing', async () => {
+      const db = createDb()
+      db.website.findFirst.mockResolvedValue({ weddingId: 'wedding-123' })
+      db.household.findFirst.mockResolvedValue(null)
+      const service = new HouseholdInviteService(db as never)
+
+      await expect(
+        service.updateAttendanceIntent('harry-and-hermione', 'bad-code', 'yes')
+      ).rejects.toHaveProperty('code', 'FORBIDDEN')
+      expect(db.household.updateMany).not.toHaveBeenCalled()
+    })
+
+    it('rejects an unknown answer without writing', async () => {
+      const db = createDb()
+      const service = new HouseholdInviteService(db as never)
+
+      await expect(
+        service.updateAttendanceIntent('harry-and-hermione', INVITE_CODE, 'definitely' as never)
+      ).rejects.toHaveProperty('code', 'BAD_REQUEST')
+      expect(db.household.updateMany).not.toHaveBeenCalled()
+    })
   })
 
   it('rejects updates that include a guest outside the invite code household', async () => {

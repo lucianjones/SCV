@@ -4,6 +4,10 @@ import { TRPCError } from '@trpc/server'
 import { z } from 'zod'
 
 import { ANALYTICS_ACTIONS, ANALYTICS_SCOPES, buildEventName } from '~/lib/analytics/events'
+import {
+  ATTENDANCE_INTENT_LIKELIHOOD,
+  type AttendanceIntent,
+} from '~/lib/website/attendance-intent'
 import { createHouseholdInviteCode } from '~/server/application/household-invite/household-invite-code'
 import type { AuthzContext } from '~/server/authz/authorization.types'
 import { requirePermission } from '~/server/authz/permission-checker'
@@ -76,6 +80,8 @@ export type HouseholdInviteData = {
     state: string | null
     zipCode: string | null
     country: string | null
+    /** Couple-facing attendance likelihood (1-5); the casual save-the-date answer sets 1, 3 or 5. */
+    likelihoodOfAttending: number | null
   }
   guests: Array<{
     id: number
@@ -317,6 +323,43 @@ export class HouseholdInviteService {
     })
   }
 
+  /**
+   * Record a household's casual "do you plan on attending?" answer from the save-the-date
+   * page. This is an intent signal, not an RSVP: it maps onto the household's
+   * likelihoodOfAttending scale (1 = Unlikely, 3 = Maybe, 5 = Very Likely).
+   */
+  async updateAttendanceIntent(
+    subUrl: string,
+    code: string | null | undefined,
+    intent: AttendanceIntent
+  ): Promise<{ success: true }> {
+    const likelihood = ATTENDANCE_INTENT_LIKELIHOOD[intent]
+    if (likelihood === undefined) {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Unknown attendance answer' })
+    }
+
+    const inviteData = await this.getInviteData(subUrl, code)
+    if (!inviteData) {
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'Invalid or expired household invite',
+      })
+    }
+
+    const result = await this.db.household.updateMany({
+      where: { id: inviteData.household.id, weddingId: inviteData.weddingId },
+      data: { likelihoodOfAttending: likelihood },
+    })
+    if (result.count !== 1) {
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'Invalid or expired household invite',
+      })
+    }
+
+    return { success: true }
+  }
+
   async updateHouseholdDetails(
     subUrl: string,
     code: string | null | undefined,
@@ -531,6 +574,7 @@ export class HouseholdInviteService {
           state: true,
           zipCode: true,
           country: true,
+          likelihoodOfAttending: true,
           wedding: {
             select: {
               groomFirstName: true,
@@ -605,6 +649,7 @@ export class HouseholdInviteService {
         state: household.state,
         zipCode: household.zipCode,
         country: household.country,
+        likelihoodOfAttending: household.likelihoodOfAttending,
       },
       guests: household.guests,
     }

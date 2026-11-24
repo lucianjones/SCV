@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { getLocale, getTranslations } from 'next-intl/server'
 
 import { formatDateStandard } from '~/app/utils/helpers'
@@ -9,6 +10,7 @@ import { Card, CardContent } from '~/components/ui/card'
 import { AddToCalendarButtons } from '~/components/website/add-to-calendar-buttons'
 import { EnvelopeReveal } from '~/components/website/household-invite/envelope-reveal'
 import { InvalidHouseholdInvite } from '~/components/website/household-invite/invalid-household-invite'
+import { attendanceIntentFromLikelihood, isAttendanceIntent } from '~/lib/website/attendance-intent'
 import { buildSaveTheDateCalendarLinks } from '~/lib/website/calendar'
 import { householdInviteCookieName } from '~/lib/website/cookies'
 import { householdInviteService } from '~/server/application/household-invite'
@@ -27,6 +29,7 @@ type SaveTheDatePageProps = {
   searchParams?: Promise<{
     invalid?: string
     updated?: string
+    attending?: string
   }>
 }
 
@@ -139,6 +142,27 @@ export default async function SaveTheDatePage({ params, searchParams }: SaveTheD
     events: inviteData.events,
   })
 
+  // Casual "do you plan on attending?" answer: an intent signal (not an RSVP) that updates the
+  // household's likelihood of attending for the couple.
+  const submitAttendanceIntent = async (formData: FormData) => {
+    'use server'
+
+    const intent = formData.get('intent')
+    if (!isAttendanceIntent(intent)) {
+      redirect(`/w/${websiteSubUrl}/save-the-date`)
+    }
+
+    const actionCookies = await cookies()
+    const actionCode = actionCookies.get(householdInviteCookieName(websiteSubUrl))?.value
+    let saved = true
+    try {
+      await householdInviteService.updateAttendanceIntent(websiteSubUrl, actionCode, intent)
+    } catch {
+      saved = false
+    }
+    redirect(`/w/${websiteSubUrl}/save-the-date?attending=${saved ? 'saved' : 'error'}`)
+  }
+
   if (template.id === 'vineyard') {
     const guestNames = inviteData.guests
       .filter((guest) => guest.isTagAlong !== true)
@@ -147,35 +171,46 @@ export default async function SaveTheDatePage({ params, searchParams }: SaveTheD
       <TemplateThemeProvider template={template}>
         <main className='min-h-screen bg-background px-5 py-12 text-foreground sm:py-16'>
           <div className='mx-auto flex min-h-[calc(100vh-6rem)] w-full max-w-2xl items-center'>
-            <EnvelopeReveal
-              coupleNames={`${inviteData.wedding.brideFirstName} & ${inviteData.wedding.groomFirstName}`}
-              coupleNameClassName='font-[family-name:var(--tpl-script-font)]'
+            <VineyardHouseholdSaveTheDate
               websiteSubUrl={websiteSubUrl}
-            >
-              <VineyardHouseholdSaveTheDate
-                websiteSubUrl={websiteSubUrl}
-                brideFirstName={inviteData.wedding.brideFirstName}
-                groomFirstName={inviteData.wedding.groomFirstName}
-                formattedDate={formattedDate}
-                location={location}
-                guestNames={guestNames}
-                calendarLinks={calendarLinks}
-                copy={saveTheDateCopy}
-                showUpdatedNotice={resolvedSearchParams?.updated === '1'}
-                labels={{
-                  saveTheDate: t('saveTheDate'),
-                  date: t('date'),
-                  location: t('location'),
-                  addToCalendar: t('addToCalendar'),
-                  invitedHousehold: t('invitedHousehold'),
-                  toBeAnnounced: t('toBeAnnounced'),
-                  formalInvitationNote: t('formalInvitationNote'),
-                  updateDetails: t('updateDetails'),
-                  viewWebsite: t('viewWebsite'),
-                  detailsUpdated: t('detailsUpdated'),
-                }}
-              />
-            </EnvelopeReveal>
+              brideFirstName={inviteData.wedding.brideFirstName}
+              groomFirstName={inviteData.wedding.groomFirstName}
+              formattedDate={formattedDate}
+              location={location}
+              guestNames={guestNames}
+              calendarLinks={calendarLinks}
+              copy={saveTheDateCopy}
+              showUpdatedNotice={resolvedSearchParams?.updated === '1'}
+              attendance={{
+                current: attendanceIntentFromLikelihood(inviteData.household.likelihoodOfAttending),
+                status:
+                  resolvedSearchParams?.attending === 'saved'
+                    ? 'saved'
+                    : resolvedSearchParams?.attending === 'error'
+                      ? 'error'
+                      : null,
+                action: submitAttendanceIntent,
+              }}
+              labels={{
+                saveTheDate: t('saveTheDate'),
+                date: t('date'),
+                location: t('location'),
+                addToCalendar: t('addToCalendar'),
+                invitedHousehold: t('invitedHousehold'),
+                toBeAnnounced: t('toBeAnnounced'),
+                formalInvitationNote: t('formalInvitationNote'),
+                updateDetails: t('updateDetails'),
+                viewWebsite: t('viewWebsite'),
+                detailsUpdated: t('detailsUpdated'),
+                planOnAttending: t('planOnAttending'),
+                planYes: t('planYes'),
+                planMaybe: t('planMaybe'),
+                planNo: t('planNo'),
+                planNote: t('planNote'),
+                planSaved: t('planSaved'),
+                planError: t('planError'),
+              }}
+            />
           </div>
         </main>
       </TemplateThemeProvider>
