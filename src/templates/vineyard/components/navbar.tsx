@@ -14,11 +14,13 @@ type VineyardNavbarProps = {
   current?: VineyardLocation
 }
 
-/** Anchor ids rendered by the shared section layout, keyed by section type. */
+/**
+ * Anchor ids rendered by the shared section layout, keyed by section type. DESTINATION is
+ * intentionally absent: it still shows on the home page but has no nav tab for now.
+ */
 const SECTION_ANCHORS: Record<string, string> = {
   OUR_STORY: 'our-story',
   TIMELINE: 'our-story',
-  DESTINATION: 'destination',
   EXPERIENCES: 'experiences',
   WEDDING_PARTY: 'wedding-party',
   FAQ: 'faq',

@@ -67,7 +67,7 @@ export default function FindYourInvitationForm({
           <p className='max-w-sm text-xs'>{isRateLimited ? t('tooManyRequests') : t('notFound')}</p>
         )}
         <button
-          className={`min-w-40 rounded-[3px] px-8 py-2.5 font-bold text-background text-sm ${name.length === 0 || isFetching ? 'cursor-not-allowed bg-foreground/50' : 'bg-foreground hover:opacity-90'}`}
+          className={`min-w-40 rounded-[3px] px-8 py-2.5 font-bold text-background text-sm ${isFetching ? 'bg-foreground/50' : 'bg-foreground hover:opacity-90'} ${name.length === 0 ? 'cursor-not-allowed' : ''}`}
           type='button'
           disabled={name.length === 0}
           onClick={handleOnSearch}

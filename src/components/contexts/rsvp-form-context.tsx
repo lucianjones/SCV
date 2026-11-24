@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, type ReactNode, useContext, useState } from 'react'
+import { createContext, type ReactNode, useCallback, useContext, useState } from 'react'
 
 import type {
   Guest,
@@ -80,11 +80,13 @@ export const RsvpFormProvider = ({ children, recognizedHousehold }: RsvpFormProv
       : INITIAL_STATE
   )
 
-  const updateFields = (fields: Partial<RsvpFormState>) => {
+  // Must be referentially stable: consumers list it as an effect dependency, and a new
+  // function on every render makes `updateRsvpForm(...)` in an effect re-render forever.
+  const updateFields = useCallback((fields: Partial<RsvpFormState>) => {
     setRsvpFormData((prev) => {
       return { ...prev, ...fields }
     })
-  }
+  }, [])
 
   return (
     <RsvpFormContext.Provider value={rsvpFormData}>
