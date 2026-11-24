@@ -94,6 +94,8 @@ describe('HouseholdInviteService', () => {
     db.household.findFirst.mockResolvedValue({
       id: 'household-123',
       weddingId: 'wedding-123',
+      inviteCode: null,
+      inviteCodeExpiresAt: null,
       guests: [{ firstName: 'Ada', lastName: 'Lovelace' }],
     })
     db.website.findFirst.mockResolvedValue({ subUrl: 'harry-and-hermione' })
@@ -113,6 +115,8 @@ describe('HouseholdInviteService', () => {
       select: {
         id: true,
         weddingId: true,
+        inviteCode: true,
+        inviteCodeExpiresAt: true,
         guests: {
           orderBy: { id: 'asc' },
           take: 1,
@@ -127,6 +131,56 @@ describe('HouseholdInviteService', () => {
         inviteCodeExpiresAt: new Date('2027-06-18T12:00:00.000Z'),
       },
     })
+  })
+
+  it('returns the already generated link instead of creating a new one', async () => {
+    const db = createDb()
+    const existingExpiry = new Date('2027-01-01T00:00:00.000Z')
+    db.household.findFirst.mockResolvedValue({
+      id: 'household-123',
+      weddingId: 'wedding-123',
+      inviteCode: 'al-existing',
+      inviteCodeExpiresAt: existingExpiry,
+      guests: [{ firstName: 'Ada', lastName: 'Lovelace' }],
+    })
+    db.website.findFirst.mockResolvedValue({ subUrl: 'harry-and-hermione' })
+    const service = new HouseholdInviteService(db as never)
+
+    const first = await service.generateInviteLink(authz, 'wedding-123', {
+      householdId: 'household-123',
+      baseUrl: 'https://example.com',
+    })
+    const second = await service.generateInviteLink(authz, 'wedding-123', {
+      householdId: 'household-123',
+      baseUrl: 'https://example.com',
+    })
+
+    expect(first.url).toBe('https://example.com/w/harry-and-hermione/save-the-date/al-existing')
+    expect(second).toEqual(first)
+    expect(first.expiresAt).toEqual(existingExpiry)
+    expect(db.household.update).not.toHaveBeenCalled()
+  })
+
+  it('creates a new link when the existing one has expired', async () => {
+    const db = createDb()
+    db.household.findFirst.mockResolvedValue({
+      id: 'household-123',
+      weddingId: 'wedding-123',
+      inviteCode: 'al-expired',
+      inviteCodeExpiresAt: new Date('2026-06-01T00:00:00.000Z'),
+      guests: [{ firstName: 'Ada', lastName: 'Lovelace' }],
+    })
+    db.website.findFirst.mockResolvedValue({ subUrl: 'harry-and-hermione' })
+    const service = new HouseholdInviteService(db as never)
+
+    const result = await service.generateInviteLink(authz, 'wedding-123', {
+      householdId: 'household-123',
+      baseUrl: 'https://example.com',
+    })
+
+    expect(result.url).not.toContain('al-expired')
+    expect(result.expiresAt).toEqual(new Date('2027-06-18T12:00:00.000Z'))
+    expect(db.household.update).toHaveBeenCalledTimes(1)
   })
 
   it('returns public couple names, date, and venue for a website slug without a code', async () => {

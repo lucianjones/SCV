@@ -188,6 +188,8 @@ export class HouseholdInviteService {
       select: {
         id: true,
         weddingId: true,
+        inviteCode: true,
+        inviteCodeExpiresAt: true,
         guests: {
           orderBy: { id: 'asc' },
           take: 1,
@@ -215,6 +217,19 @@ export class HouseholdInviteService {
       })
     }
 
+    // Copying the link again hands back the one already generated, so links that were already
+    // shared keep working. A new code is only created when there is none yet or it has expired.
+    if (
+      household.inviteCode &&
+      household.inviteCodeExpiresAt &&
+      household.inviteCodeExpiresAt.getTime() > Date.now()
+    ) {
+      return {
+        url: `${normalizeBaseUrl(input.baseUrl)}/w/${website.subUrl}/save-the-date/${household.inviteCode}`,
+        expiresAt: household.inviteCodeExpiresAt,
+      }
+    }
+
     const expiresAt = new Date()
     expiresAt.setUTCFullYear(expiresAt.getUTCFullYear() + 1)
     const code = await this.assignInviteCode(household.id, household.guests, expiresAt)
@@ -228,8 +243,7 @@ export class HouseholdInviteService {
   /**
    * Assigns a short invite code to the household, retrying on the rare
    * collision with another household's code (the DB unique constraint is the
-   * source of truth). Reused links keep the same code and just get a fresh
-   * expiry.
+   * source of truth). Only called when the household has no valid code yet.
    */
   private async assignInviteCode(
     householdId: string,
