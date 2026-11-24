@@ -16,7 +16,7 @@
  * separate application-level orchestration from domain logic.
  */
 
-import { calculateDaysRemaining, formatDateNumber } from '~/app/utils/helpers'
+import { calculateDaysRemaining, findPrimaryEvent, formatDateNumber } from '~/app/utils/helpers'
 import type {
   DashboardData,
   EventWithStats,
@@ -112,7 +112,7 @@ export class DashboardService {
     }
 
     // Get wedding date and location from the first event (created as "Ceremony" during onboarding)
-    const primaryEvent = events[0]
+    const primaryEvent = findPrimaryEvent(events)
     const weddingDate = primaryEvent?.date
     const weddingLocation = primaryEvent?.venue
 
@@ -235,6 +235,7 @@ export class DashboardService {
       brideLastName: wedding.brideLastName,
       date: {
         standardFormat: weddingDate?.toLocaleDateString('en-us', {
+          timeZone: 'UTC',
           weekday: 'long',
           year: 'numeric',
           month: 'short',

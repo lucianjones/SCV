@@ -13,12 +13,16 @@ function fullName(first: string | null, last: string | null) {
   return [first, last].filter(Boolean).join(' ')
 }
 
-/** Splits "September 25, 2027" into "September 25" and "2027". */
-function splitDate(standardFormat: string | undefined) {
-  if (!standardFormat) return { monthDay: 'Date To Be Announced', year: '' }
-  const index = standardFormat.lastIndexOf(', ')
-  if (index === -1) return { monthDay: standardFormat, year: '' }
-  return { monthDay: standardFormat.slice(0, index), year: standardFormat.slice(index + 2) }
+/** Turns the "09.25.2027" number format into "September 25" and "2027". */
+function splitDate(numberFormat: string | undefined) {
+  const match = numberFormat?.match(/^(\d{2})\.(\d{2})\.(\d{4})$/)
+  if (!match) return { monthDay: 'Date To Be Announced', year: '' }
+  const [, month, day, year] = match
+  const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)))
+  return {
+    monthDay: date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'UTC' }),
+    year: year ?? '',
+  }
 }
 
 /** Splits "Sulzfeld, Baden-Württemberg, Germany" into a headline and a caption. */
@@ -33,7 +37,7 @@ export function VineyardHome({ weddingData, path, introText }: Readonly<Template
   const { website } = weddingData
   const destination = weddingData.sections.find((section) => section.type === 'DESTINATION')
   const location = splitLocation((destination?.content as DestinationSectionContent)?.location)
-  const { monthDay, year } = splitDate(weddingData.date?.standardFormat)
+  const { monthDay, year } = splitDate(weddingData.date?.numberFormat)
   const shortNames = [weddingData.brideFirstName, weddingData.groomFirstName]
     .filter(Boolean)
     .join(' & ')

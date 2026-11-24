@@ -145,11 +145,24 @@ const dataUrlToFile = (url: string, fileName: string) => {
   return new File([arr], fileName, { type: mime })
 }
 
+/**
+ * The event that defines "the wedding date": one named "Wedding Day", else the "Ceremony"
+ * created during onboarding, else the earliest-created event.
+ */
+function findPrimaryEvent<T extends { name: string }>(events: T[]): T | undefined {
+  return (
+    events.find((event) => event.name === 'Wedding Day') ??
+    events.find((event) => event.name === 'Ceremony') ??
+    events[0]
+  )
+}
+
 export {
   calculateDaysRemaining,
   convertDate,
   dataUrlToFile,
   debounce,
+  findPrimaryEvent,
   formatDateHTML5,
   formatDateNumber,
   formatDateStandard,

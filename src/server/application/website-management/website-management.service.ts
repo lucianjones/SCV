@@ -1,6 +1,6 @@
 import { TRPCError } from '@trpc/server'
 
-import { calculateDaysRemaining, formatDateNumber } from '~/app/utils/helpers'
+import { calculateDaysRemaining, findPrimaryEvent, formatDateNumber } from '~/app/utils/helpers'
 import { deriveWeddingSubUrl } from '~/lib/website-slug'
 import type { HouseholdInviteService } from '~/server/application/household-invite/household-invite.service'
 import type { AuthzContext } from '~/server/authz/authorization.types'
@@ -215,7 +215,7 @@ export class WebsiteManagementService {
         message: 'Failed to fetch wedding data.',
       })
     }
-    const weddingDate = events.find((event) => event.name === 'Wedding Day')?.date
+    const weddingDate = findPrimaryEvent(events)?.date
     const homeSection = sections.find((section) => section.type === WebsiteSectionType.HOME)
     const homeContent =
       homeSection?.isEnabled && homeSection.type === WebsiteSectionType.HOME
@@ -260,6 +260,7 @@ export class WebsiteManagementService {
       brideLastName: wedding.brideLastName,
       date: {
         standardFormat: weddingDate?.toLocaleDateString('en-us', {
+          timeZone: 'UTC',
           weekday: 'long',
           year: 'numeric',
           month: 'short',
