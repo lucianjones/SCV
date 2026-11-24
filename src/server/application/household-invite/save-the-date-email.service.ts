@@ -4,6 +4,7 @@ import type { PrismaClient } from '@prisma/client'
 import { TRPCError } from '@trpc/server'
 
 import type { TemplatedEmail, TemplatedEmailBatchResult } from '~/lib/email'
+import { pickCeremonyEvent } from '~/lib/events/ceremony'
 import { logger } from '~/lib/observability/logger'
 import type { HouseholdInviteService } from '~/server/application/household-invite/household-invite.service'
 import type { AuthzContext } from '~/server/authz/authorization.types'
@@ -33,14 +34,6 @@ export type SaveTheDateEmailResult = {
   errors: string[]
 }
 
-/**
- * The ceremony is the event named "Ceremony" (what onboarding creates), else "Wedding Day", else
- * the earliest-created event whose name mentions a ceremony (e.g. "Garden Ceremony").
- */
-const pickCeremonyEvent = <T extends { name: string }>(events: T[]): T | undefined =>
-  events.find((event) => event.name.trim().toLowerCase() === 'ceremony') ??
-  events.find((event) => event.name.trim().toLowerCase() === 'wedding day') ??
-  events.find((event) => event.name.toLowerCase().includes('ceremony'))
 const VARIABLE_NAME = 'SAVE_THE_DATE_URL'
 
 type Recipient = { householdId: string; email: string }

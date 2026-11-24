@@ -14,6 +14,7 @@ import type { PrismaClient } from '@prisma/client'
 import { TRPCError } from '@trpc/server'
 
 import { RSVP_STATUS } from '~/lib/constants'
+import { pickCeremonyEvent } from '~/lib/events/ceremony'
 import type { AuthzContext } from '~/server/authz/authorization.types'
 import { requirePermission } from '~/server/authz/permission-checker'
 import { checklistSeedingService } from '~/server/domains/checklist'
@@ -31,7 +32,8 @@ export class EventManagementService {
    * Create a new event with auto-generated invitations
    *
    * Business rules:
-   * - Auto-creates invitations for all existing guests with "Not Invited" status
+   * - Auto-creates invitations for all existing guests: "Invited" if this is the ceremony,
+   *   otherwise "Not Invited"
    * - Tag-alongs only get invitations if the event allows them
    */
   async createEvent(ctx: AuthzContext, weddingId: string, data: CreateEventInput): Promise<Event> {
@@ -70,12 +72,23 @@ export class EventManagementService {
       })
 
       if (guests.length > 0) {
+        // Existing guests are invited to a new ceremony by default, and not invited to other events.
+        const events = await tx.event.findMany({
+          where: { weddingId },
+          orderBy: { createdAt: 'asc' },
+          select: { id: true, name: true },
+        })
+        const rsvp =
+          pickCeremonyEvent(events)?.id === newEvent.id
+            ? RSVP_STATUS.INVITED
+            : RSVP_STATUS.NOT_INVITED
+
         await tx.invitation.createMany({
           data: guests.map((guest) => ({
             weddingId,
             guestId: guest.id,
             eventId: newEvent.id,
-            rsvp: RSVP_STATUS.NOT_INVITED,
+            rsvp,
           })),
         })
       }

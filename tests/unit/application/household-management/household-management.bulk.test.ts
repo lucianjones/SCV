@@ -82,7 +82,7 @@ const createMockDb = () => {
   const tx = {
     __tx: true,
     event: {
-      findMany: jest.fn().mockResolvedValue([{ id: 'event-123' }]),
+      findMany: jest.fn().mockResolvedValue([{ id: 'event-123', name: 'Ceremony' }]),
     },
   }
 

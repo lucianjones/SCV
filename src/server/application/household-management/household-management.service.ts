@@ -11,6 +11,7 @@
 // biome-ignore lint/style/noRestrictedImports: Application services use PrismaClient for cross-domain transactions
 import type { PrismaClient } from '@prisma/client'
 import { TRPCError } from '@trpc/server'
+import { defaultInvitesForEvents } from '~/lib/events/ceremony'
 import type {
   CreateHouseholdResult,
   CreateHouseholdWithGuestsInput,
@@ -51,15 +52,20 @@ export class HouseholdManagementService {
       const txHouseholdRepo = new HouseholdRepository(tx)
       const txGuestRepo = new GuestRepository(tx)
 
-      let defaultEventIds: string[] | undefined
-      const getDefaultEventIds = async () => {
-        defaultEventIds ??= (
-          await tx.event.findMany({
-            where: { weddingId },
-            select: { id: true },
-          })
-        ).map((event) => event.id)
-        return defaultEventIds
+      // Defaults for guests created without explicit invitations: invited to the ceremony, not
+      // invited to the other events.
+      let defaultInvites: Array<readonly [string, string]> | undefined
+      const getDefaultInvites = async () => {
+        defaultInvites ??= Object.entries(
+          defaultInvitesForEvents(
+            await tx.event.findMany({
+              where: { weddingId },
+              orderBy: { createdAt: 'asc' },
+              select: { id: true, name: true },
+            })
+          )
+        )
+        return defaultInvites
       }
 
       const eventIds = Object.keys(data.guestParty[0]?.invites ?? {})
@@ -91,9 +97,7 @@ export class HouseholdManagementService {
           const isTagAlong = guest.isTagAlong ?? false
           const inviteEntries = Object.entries(guest.invites)
           const defaultInviteEntries =
-            inviteEntries.length === 0
-              ? (await getDefaultEventIds()).map((eventId) => [eventId, 'Not Invited'] as const)
-              : inviteEntries
+            inviteEntries.length === 0 ? await getDefaultInvites() : inviteEntries
           const invitations = defaultInviteEntries.map(([eventId, rsvp]) => ({
             eventId,
             rsvp,
@@ -166,15 +170,20 @@ export class HouseholdManagementService {
       const txGuestRepo = new GuestRepository(tx)
       const txInvitationRepo = new InvitationRepository(tx)
       const txGiftRepo = new GiftRepository(tx)
-      let defaultEventIds: string[] | undefined
-      const getDefaultEventIds = async () => {
-        defaultEventIds ??= (
-          await tx.event.findMany({
-            where: { weddingId },
-            select: { id: true },
-          })
-        ).map((event) => event.id)
-        return defaultEventIds
+      // Defaults for guests created without explicit invitations: invited to the ceremony, not
+      // invited to the other events.
+      let defaultInvites: Array<readonly [string, string]> | undefined
+      const getDefaultInvites = async () => {
+        defaultInvites ??= Object.entries(
+          defaultInvitesForEvents(
+            await tx.event.findMany({
+              where: { weddingId },
+              orderBy: { createdAt: 'asc' },
+              select: { id: true, name: true },
+            })
+          )
+        )
+        return defaultInvites
       }
 
       const updatedHousehold = await txHouseholdRepo.update(data.householdId, {
@@ -199,9 +208,7 @@ export class HouseholdManagementService {
           const isTagAlong = guest.isTagAlong ?? false
           const inviteEntries = Object.entries(guest.invites)
           const defaultInviteEntries =
-            !guest.guestId && inviteEntries.length === 0
-              ? (await getDefaultEventIds()).map((eventId) => [eventId, 'Not Invited'] as const)
-              : inviteEntries
+            !guest.guestId && inviteEntries.length === 0 ? await getDefaultInvites() : inviteEntries
           const invitations = defaultInviteEntries.map(([eventId, rsvp]) => ({
             eventId,
             rsvp,

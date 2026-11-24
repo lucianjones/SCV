@@ -78,7 +78,10 @@ const createMockDb = () => {
   const tx = {
     __tx: true,
     event: {
-      findMany: jest.fn().mockResolvedValue([{ id: 'event-123' }, { id: 'event-456' }]),
+      findMany: jest.fn().mockResolvedValue([
+        { id: 'event-123', name: 'Ceremony' },
+        { id: 'event-456', name: 'Welcome Dinner' },
+      ]),
     },
   }
 
@@ -200,7 +203,7 @@ describe('HouseholdManagementService', () => {
     )
   })
 
-  it('creates default not-invited rows for a new household when invites are empty', async () => {
+  it('invites a new household to the ceremony (and not other events) when invites are empty', async () => {
     await service.createHouseholdWithGuests(actorContext, 'wedding-123', {
       address1: '123 Main St',
       guestParty: [{ firstName: 'Taylor', lastName: 'Doe', invites: {} }],
@@ -208,14 +211,15 @@ describe('HouseholdManagementService', () => {
 
     expect(mockDb.tx.event.findMany).toHaveBeenCalledWith({
       where: { weddingId: 'wedding-123' },
-      select: { id: true },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, name: true },
     })
     expect(mockGuestCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         firstName: 'Taylor',
         lastName: 'Doe',
         invitations: [
-          { eventId: 'event-123', rsvp: 'Not Invited', weddingId: 'wedding-123' },
+          { eventId: 'event-123', rsvp: 'Invited', weddingId: 'wedding-123' },
           { eventId: 'event-456', rsvp: 'Not Invited', weddingId: 'wedding-123' },
         ],
       })
@@ -255,7 +259,7 @@ describe('HouseholdManagementService', () => {
     })
   })
 
-  it('creates default not-invited rows for a new household member when invites are empty', async () => {
+  it('invites a new household member to the ceremony (and not other events) when invites are empty', async () => {
     await service.updateHouseholdWithGuests(actorContext, 'wedding-123', {
       householdId: 'household-123',
       guestParty: [
@@ -271,7 +275,8 @@ describe('HouseholdManagementService', () => {
 
     expect(mockDb.tx.event.findMany).toHaveBeenCalledWith({
       where: { weddingId: 'wedding-123' },
-      select: { id: true },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, name: true },
     })
     expect(mockGuestUpsert).toHaveBeenCalledWith(
       undefined,
@@ -281,7 +286,7 @@ describe('HouseholdManagementService', () => {
         isTagAlong: false,
       }),
       [
-        { eventId: 'event-123', rsvp: 'Not Invited', weddingId: 'wedding-123' },
+        { eventId: 'event-123', rsvp: 'Invited', weddingId: 'wedding-123' },
         { eventId: 'event-456', rsvp: 'Not Invited', weddingId: 'wedding-123' },
       ]
     )

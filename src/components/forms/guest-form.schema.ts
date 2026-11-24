@@ -7,6 +7,8 @@
 
 import { z } from 'zod'
 
+import { defaultInvitesForEvents } from '~/lib/events/ceremony'
+
 import {
   baseHouseholdFields,
   giftInputSchema,
@@ -54,12 +56,14 @@ export type GiftFormData = z.infer<typeof giftInputSchema>
  * Helper to get default form values for creating a new household
  * Constructs default form data without validation (validation happens on submit)
  */
-export const getDefaultHouseholdFormData = (events: Array<{ id: string }>): HouseholdFormData => {
-  const invites: Record<string, string> = {}
+export const getDefaultHouseholdFormData = (
+  events: Array<{ id: string; name: string }>
+): HouseholdFormData => {
+  // Invited to the ceremony by default, not invited to other events.
+  const invites = defaultInvitesForEvents(events)
   const gifts: GiftFormData[] = []
 
   events.forEach((event) => {
-    invites[event.id] = 'Not Invited'
     gifts.push({
       eventId: event.id,
       thankyou: false,

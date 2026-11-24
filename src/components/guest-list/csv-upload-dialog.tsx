@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from '~/components/ui/dialog'
 import { FileDropzone } from '~/components/ui/file-dropzone'
+import { defaultInvitesForEvents } from '~/lib/events/ceremony'
 import { api } from '~/trpc/react'
 
 // ---------------------------------------------------------------------------
@@ -155,7 +156,8 @@ export function CsvUploadDialog({ open, onOpenChange, events }: CsvUploadDialogP
 
   const handleImport = () => {
     if (validRows.length === 0) return
-    const invites = Object.fromEntries(events.map((e) => [e.id, 'Not Invited']))
+    // New guests are invited to the ceremony by default and not invited to other events.
+    const invites = defaultInvitesForEvents(events)
     const households = buildHouseholdPayloads(validRows, invites)
     bulkCreateMutation.mutate({ households })
   }

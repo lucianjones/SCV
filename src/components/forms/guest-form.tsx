@@ -40,6 +40,7 @@ import {
   AlertDialogTitle,
 } from '~/components/ui/alert-dialog'
 import { Label } from '~/components/ui/label'
+import { defaultInvitesForEvents } from '~/lib/events/ceremony'
 import { api } from '~/trpc/react'
 
 type GuestFormProps = {
@@ -167,10 +168,8 @@ export default function GuestForm({ events, prefillFormData }: GuestFormProps) {
   }
 
   const handleAddGuestToParty = () => {
-    const invites: FormInvites = {}
-    events.forEach((event: Event) => {
-      invites[event.id] = 'Not Invited'
-    })
+    // Invited to the ceremony by default, not invited to other events.
+    const invites: FormInvites = defaultInvitesForEvents(events)
 
     append({
       firstName: '',

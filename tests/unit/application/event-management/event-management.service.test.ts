@@ -40,6 +40,7 @@ const createMockDb = () => {
     event: {
       create: jest.fn(),
       findUnique: jest.fn(),
+      findMany: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
     },
@@ -91,6 +92,47 @@ describe('EventManagementService', () => {
 
     expect(mockRequirePermission).toHaveBeenCalledWith(actorContext, { event: ['create'] })
     expect(mockEnsureSeededFn).toHaveBeenCalledWith('wedding-123', mockDb._tx)
+  })
+
+  describe('default invitations for existing guests', () => {
+    const existingGuests = [{ id: 1 }, { id: 2 }]
+
+    it('invites existing guests to a newly created ceremony', async () => {
+      const ceremony = { ...mockEvent, id: 'event-ceremony', name: 'Ceremony' }
+      mockDb._tx.event.create.mockResolvedValue(ceremony)
+      mockDb._tx.guest.findMany.mockResolvedValue(existingGuests)
+      mockDb._tx.event.findMany.mockResolvedValue([{ id: 'event-ceremony', name: 'Ceremony' }])
+      mockDb._tx.invitation.createMany.mockResolvedValue({ count: 2 })
+
+      await service.createEvent(actorContext, 'wedding-123', { eventName: 'Ceremony' })
+
+      expect(mockDb._tx.invitation.createMany).toHaveBeenCalledWith({
+        data: [
+          { weddingId: 'wedding-123', guestId: 1, eventId: 'event-ceremony', rsvp: 'Invited' },
+          { weddingId: 'wedding-123', guestId: 2, eventId: 'event-ceremony', rsvp: 'Invited' },
+        ],
+      })
+    })
+
+    it('does not invite existing guests to other events', async () => {
+      const dinner = { ...mockEvent, id: 'event-dinner', name: 'Welcome Dinner' }
+      mockDb._tx.event.create.mockResolvedValue(dinner)
+      mockDb._tx.guest.findMany.mockResolvedValue(existingGuests)
+      mockDb._tx.event.findMany.mockResolvedValue([
+        { id: 'event-ceremony', name: 'Ceremony' },
+        { id: 'event-dinner', name: 'Welcome Dinner' },
+      ])
+      mockDb._tx.invitation.createMany.mockResolvedValue({ count: 2 })
+
+      await service.createEvent(actorContext, 'wedding-123', { eventName: 'Welcome Dinner' })
+
+      expect(mockDb._tx.invitation.createMany).toHaveBeenCalledWith({
+        data: [
+          { weddingId: 'wedding-123', guestId: 1, eventId: 'event-dinner', rsvp: 'Not Invited' },
+          { weddingId: 'wedding-123', guestId: 2, eventId: 'event-dinner', rsvp: 'Not Invited' },
+        ],
+      })
+    })
   })
 
   it('requires event update permission before updating', async () => {
