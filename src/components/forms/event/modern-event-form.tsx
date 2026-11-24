@@ -8,11 +8,11 @@
  */
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { format } from 'date-fns'
+import { format, parse } from 'date-fns'
 import { Calendar as CalendarIcon, Clock } from 'lucide-react'
 import { useEffect } from 'react'
 import { type Resolver, type SubmitHandler, useForm } from 'react-hook-form'
-
+import { toCalendarDate } from '~/app/utils/helpers'
 import {
   type EventFormData,
   EventFormSchema,
@@ -69,7 +69,7 @@ export function ModernEventForm({
     defaultValues: isEditMode
       ? {
           eventName: event.name,
-          date: event.date ? format(new Date(event.date), 'yyyy-MM-dd') : '',
+          date: event.date ? format(toCalendarDate(event.date), 'yyyy-MM-dd') : '',
           startTime: event.startTime ?? '',
           endTime: event.endTime ?? '',
           venue: event.venue ?? '',
@@ -99,7 +99,7 @@ export function ModernEventForm({
         isEditMode
           ? {
               eventName: event.name,
-              date: event.date ? format(new Date(event.date), 'yyyy-MM-dd') : '',
+              date: event.date ? format(toCalendarDate(event.date), 'yyyy-MM-dd') : '',
               startTime: event.startTime ?? '',
               endTime: event.endTime ?? '',
               venue: event.venue ?? '',
@@ -114,7 +114,9 @@ export function ModernEventForm({
   }, [open, event, form, isEditMode])
 
   // Parse date string to Date object for calendar
-  const selectedDate = dateValue ? new Date(dateValue) : undefined
+  // 'yyyy-MM-dd' must be parsed as a local date; new Date() would read it as UTC and
+  // show the previous day in timezones behind UTC.
+  const selectedDate = dateValue ? parse(dateValue, 'yyyy-MM-dd', new Date()) : undefined
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

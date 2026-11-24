@@ -2,6 +2,7 @@
 function formatDateStandard(date: Date | null | undefined) {
   if (!date) return
   return date.toLocaleDateString('en-us', {
+    timeZone: 'UTC', // event dates are stored as calendar dates (UTC midnight)
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -157,6 +158,15 @@ function findPrimaryEvent<T extends { name: string }>(events: T[]): T | undefine
   )
 }
 
+/**
+ * Converts a stored calendar date (UTC midnight) into a local-midnight Date for the same
+ * Y/M/D, so date-fns and calendar widgets display the stored day in any timezone.
+ */
+function toCalendarDate(date: Date | string): Date {
+  const d = new Date(date)
+  return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+}
+
 export {
   calculateDaysRemaining,
   convertDate,
@@ -168,4 +178,5 @@ export {
   formatDateStandard,
   generateRandomColor,
   generateTimes,
+  toCalendarDate,
 }

@@ -355,7 +355,9 @@ export const GuestNameForm = ({
                           </Label>
                           {event.date && (
                             <p className='mt-0.5 text-muted-foreground text-xs'>
-                              {new Date(event.date).toLocaleDateString()}
+                              {new Date(event.date).toLocaleDateString(undefined, {
+                                timeZone: 'UTC',
+                              })}
                             </p>
                           )}
                         </div>

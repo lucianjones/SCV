@@ -11,7 +11,7 @@ import {
   Users,
 } from 'lucide-react'
 import { memo } from 'react'
-
+import { toCalendarDate } from '~/app/utils/helpers'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
@@ -60,7 +60,9 @@ function EventCardBase({
             {event.date && (
               <CardDescription className='mt-1.5 flex items-center gap-1.5'>
                 <Calendar className='h-3.5 w-3.5 shrink-0' />
-                <span className='text-xs md:text-sm'>{format(new Date(event.date), 'PPP')}</span>
+                <span className='text-xs md:text-sm'>
+                  {format(toCalendarDate(event.date), 'PPP')}
+                </span>
               </CardDescription>
             )}
           </div>
