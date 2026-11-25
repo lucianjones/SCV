@@ -44,6 +44,11 @@ type Props = {
     planNote: string
     planSaved: string
     planError: string
+    planAnswerYes: string
+    planAnswerMaybe: string
+    planAnswerNo: string
+    planChange: string
+    planCancel: string
   }
 }
 

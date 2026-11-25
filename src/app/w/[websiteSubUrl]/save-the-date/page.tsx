@@ -206,6 +206,11 @@ export default async function SaveTheDatePage({ params, searchParams }: SaveTheD
                 planNote: t('planNote'),
                 planSaved: t('planSaved'),
                 planError: t('planError'),
+                planAnswerYes: t('planAnswerYes'),
+                planAnswerMaybe: t('planAnswerMaybe'),
+                planAnswerNo: t('planAnswerNo'),
+                planChange: t('planChange'),
+                planCancel: t('planCancel'),
               }}
             />
           </div>
