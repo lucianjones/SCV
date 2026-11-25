@@ -41,19 +41,25 @@ const renderHome = (events: ReturnType<typeof event>[]) =>
   )
 
 describe('VineyardHome events', () => {
-  it('does not repeat the ceremony and its date below the RSVP button', () => {
-    renderHome([event('ceremony', 'Ceremony')])
+  it('does not list any events on the home page', () => {
+    renderHome([
+      event('ceremony', 'Ceremony'),
+      event('dinner', 'Welcome Dinner'),
+      event('brunch', 'Farewell Brunch'),
+    ])
 
-    expect(screen.queryByRole('heading', { name: 'Ceremony' })).toBeNull()
+    for (const name of ['Ceremony', 'Welcome Dinner', 'Farewell Brunch']) {
+      expect(screen.queryByRole('heading', { name })).toBeNull()
+    }
     expect(screen.queryByText('September 25, 2027')).toBeNull()
   })
 
-  it('still lists the other events', () => {
-    renderHome([event('ceremony', 'Ceremony'), event('dinner', 'Welcome Dinner')])
+  it('still shows the couple, place-and-date header and RSVP link', () => {
+    renderHome([event('ceremony', 'Ceremony')])
 
-    expect(screen.queryByRole('heading', { name: 'Ceremony' })).toBeNull()
-    expect(screen.getByRole('heading', { name: 'Welcome Dinner' })).toBeInTheDocument()
-    // Only the dinner's date is listed, which also proves the date format asserted above is real.
-    expect(screen.getAllByText('September 25, 2027')).toHaveLength(1)
+    expect(screen.getByText('Joanna Ryan')).toBeInTheDocument()
+    expect(screen.getByText('Lucian Jones')).toBeInTheDocument()
+    expect(screen.getByText('September 25')).toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: 'RSVP' }).length).toBeGreaterThan(0)
   })
 })
