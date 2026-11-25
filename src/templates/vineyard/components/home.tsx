@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { formatDateStandard } from '~/app/utils/helpers'
+import { pickCeremonyEvent } from '~/lib/events/ceremony'
 import type { DestinationSectionContent } from '~/server/domains/website-section/website-section.types'
 import { ClassicCoupleGallery } from '~/templates/classic/components/media'
 import { ClassicSections } from '~/templates/classic/components/sections'
@@ -41,6 +42,10 @@ export function VineyardHome({ weddingData, path, introText }: Readonly<Template
   const shortNames = vineyardShortNames(weddingData)
   // Travel has its own page, so it isn't repeated on the home page.
   const homeSections = weddingData.sections.filter((section) => section.type !== 'TRAVEL')
+  // The ceremony and its date are already shown in the header block above, so only list the
+  // other events here.
+  const ceremony = pickCeremonyEvent(weddingData.events)
+  const otherEvents = weddingData.events.filter((event) => event.id !== ceremony?.id)
 
   return (
     <main className='flex flex-col items-center pb-24 text-center'>
@@ -118,7 +123,7 @@ export function VineyardHome({ weddingData, path, introText }: Readonly<Template
         <ClassicCoupleGallery urls={website.coupleImageUrls} />
       </div>
 
-      {weddingData.events.map((event) => (
+      {otherEvents.map((event) => (
         <div key={event.id} className='mb-12 flex flex-col gap-2'>
           <h3 className={`${script} text-4xl text-foreground`}>{event.name}</h3>
           {!!event.date && <span className='text-lg'>{formatDateStandard(event.date)}</span>}
